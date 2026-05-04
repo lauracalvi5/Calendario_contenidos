@@ -1099,30 +1099,30 @@ async function generateShareCode() {
 }
 
 // 2. Modificamos el Render para que muestre la imagen grande
-function renderPosts() {
-  const container = document.getElementById('postsContainer');
-  container.innerHTML = '';
+function renderMedia(post) {
+  // Si no hay archivos, no mostramos nada
+  if (!post.fileNames || post.fileNames.length === 0) return '<div class="no-media">Sin vista previa</div>';
 
-  posts.forEach(post => {
-    const card = document.createElement('div');
-    card.className = 'post-card';
-    
-    // Si estamos en vista compartida y hay preview, la mostramos destacada
-    let mediaHTML = '';
-    if (post.mediaPreview) {
-      mediaHTML = `
-        <div style="margin-top:10px; border-radius:8px; overflow:hidden; border:1px solid #eee;">
-          <img src="${post.mediaPreview}" style="width:100%; display:block; object-fit:cover; max-height:300px;" alt="Preview">
-        </div>`;
-    }
+  // Si es un video (asumiendo por extensión o tipo)
+  if (post.fileNames[0].includes('.mp4')) {
+    return `<video controls class="post-video">
+              <source src="${post.fileNames[0]}" type="video/mp4">
+            </video>`;
+  }
 
-    card.innerHTML = `
-      <h3 style="color:#32375f; font-family:'Poppins';">${post.title}</h3>
-      <p>${post.content}</p>
-      ${mediaHTML}
-    `;
-    container.appendChild(card);
-  });
+  // Si son imágenes (Carrusel)
+  let imagesHTML = post.fileNames.map((file, index) => `
+    <div class="carousel-item ${index === 0 ? 'active' : ''}">
+      <img src="${file}" class="d-block w-100" alt="Vista previa">
+    </div>
+  `).join('');
+
+  return `
+    <div class="carousel slide" data-bs-ride="carousel">
+      <div class="carousel-inner">
+        ${imagesHTML}
+      </div>
+    </div>`;
 }
 function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
@@ -1143,7 +1143,13 @@ function checkSharedAccess() {
     // 3. Cargar datos
     isSharedView = true;
     posts = decoded.p || [];
-    
+    // IMPORTANTE: Esto refresca la pantalla con los datos del link
+    if (typeof renderPosts === 'function') {
+    renderPosts(); 
+    } else {
+      // Si no tenés una función renderPosts, llamá a la que uses para dibujar la lista
+      actualizarVistaPublicaciones(); 
+    }
     // Usamos un pequeño delay para asegurar que el DOM de Sabium cargó
     setTimeout(() => {
       const clientLabel = document.getElementById('clientSelText');
