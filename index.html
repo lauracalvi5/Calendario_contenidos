@@ -1072,30 +1072,61 @@ function closeShareModal(e) {
   document.getElementById('shareModalOverlay').classList.remove('open');
 }
 
-function generateShareCode() {
+// 1. Modificamos la función que genera el link para que incluya la "miniatura"
+async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
   const duration = parseInt(document.getElementById('shareDuration').value);
   
-  // Filtramos solo los posts publicados para enviar en el link
-  const sharedPosts = posts.filter(p => p.status === 'published');
-  
+  // Filtramos y preparamos los posts
+  const sharedPosts = await Promise.all(posts.filter(p => p.status === 'published').map(async p => {
+    // Si hay una imagen seleccionada, intentamos capturar una versión pequeña
+    // Esto es un placeholder lógico: en tu input file deberías tener la dataURL
+    return {
+      title: p.title,
+      content: p.content,
+      mediaPreview: p.localPreview || null // Aquí viajaría la imagen en Base64
+    };
+  }));
+
   const payload = {
     c: clientName,
     p: sharedPosts,
     exp: duration > 0 ? Date.now() + duration * 86400000 : null
   };
-  
-  // Convertimos a string, codificamos caracteres y pasamos a Base64
+
   const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
-  
-  const baseUrl = window.location.origin + window.location.pathname;
-  // Pasamos toda la info encriptada en el parámetro ?data=
-  const shareLink = `${baseUrl}?data=${encoded}`;
+  const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
   
   document.getElementById('shareResultLink').value = shareLink;
   document.getElementById('shareResultField').style.display = 'block';
 }
 
+// 2. Modificamos el Render para que muestre la imagen grande
+function renderPosts() {
+  const container = document.getElementById('postsContainer');
+  container.innerHTML = '';
+
+  posts.forEach(post => {
+    const card = document.createElement('div');
+    card.className = 'post-card';
+    
+    // Si estamos en vista compartida y hay preview, la mostramos destacada
+    let mediaHTML = '';
+    if (post.mediaPreview) {
+      mediaHTML = `
+        <div style="margin-top:10px; border-radius:8px; overflow:hidden; border:1px solid #eee;">
+          <img src="${post.mediaPreview}" style="width:100%; display:block; object-fit:cover; max-height:300px;" alt="Preview">
+        </div>`;
+    }
+
+    card.innerHTML = `
+      <h3 style="color:#32375f; font-family:'Poppins';">${post.title}</h3>
+      <p>${post.content}</p>
+      ${mediaHTML}
+    `;
+    container.appendChild(card);
+  });
+}
 function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
   const shareData = params.get('data');
