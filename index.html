@@ -293,7 +293,9 @@ const defaultPotentialClients = [
   {id:3, name:'Carlos Ruiz', status:'negociando', date:'2026-04-28', phone:'+54 9 11 4567-8901', notes:'Espera presupuesto'}
 ];
 
-const defaultPosts = [
+const defaultPosts = [];
+
+const seededPosts = [
   {date:'2026-05-06 10:00', networks:['ig','fb'], caption:'Empezá la semana con nuestro café especial de temporada. El aroma que necesitás para arrancar bien el lunes. #CaféMorado', status:'scheduled', note:'', emoji:'☕', ad:false},
   {date:'2026-05-09 18:00', networks:['ig'], caption:'Detrás de cada taza, hay una historia. Visitanos y contanos la tuya. #Barista #Cafetería', status:'scheduled', note:'Usar foto de barista nueva', emoji:'📸', ad:false},
   {date:'2026-05-12 12:00', networks:['fb','li'], caption:'Brindamos espacios de trabajo tranquilos con WiFi y café de especialidad. Ideal para reuniones creativas.', status:'draft', note:'Confirmar con cliente', emoji:'💻', ad:true},
@@ -302,6 +304,18 @@ const defaultPosts = [
   {date:'2026-05-02 11:00', networks:['ig','fb'], caption:'Gracias por ser parte de nuestra comunidad. 1000 seguidores y contando.', status:'published', note:'', emoji:'🎉', ad:true, stats:{likes:124, comments:31, reach:980, saves:45}},
   {date:'2026-05-01 10:00', networks:['fb'], caption:'Feliz primer día de mayo. Les recordamos nuestros horarios especiales del feriado.', status:'published', note:'', emoji:'📅', ad:false, stats:{likes:67, comments:8, reach:520, saves:12}}
 ];
+
+function isSeedPost(post) {
+  return seededPosts.some(seed =>
+    post.date === seed.date &&
+    post.caption === seed.caption &&
+    post.status === seed.status &&
+    post.note === seed.note &&
+    post.emoji === seed.emoji &&
+    post.ad === seed.ad &&
+    JSON.stringify(post.networks || []) === JSON.stringify(seed.networks || [])
+  );
+}
 
 function cloneData(data) {
   return typeof structuredClone === 'function' ? structuredClone(data) : JSON.parse(JSON.stringify(data));
@@ -319,16 +333,17 @@ function loadAppState() {
 
   try {
     const parsed = JSON.parse(stored);
+    const storedPosts = Array.isArray(parsed.posts) ? parsed.posts.filter(post => !isSeedPost(post)) : [];
     return {
       clients: Array.isArray(parsed.clients) && parsed.clients.length ? parsed.clients : defaultClients.slice(),
       potentialClients: Array.isArray(parsed.potentialClients) && parsed.potentialClients.length ? parsed.potentialClients : cloneData(defaultPotentialClients),
-      posts: Array.isArray(parsed.posts) && parsed.posts.length ? parsed.posts : cloneData(defaultPosts)
+      posts: storedPosts
     };
   } catch {
     return {
       clients: defaultClients.slice(),
       potentialClients: cloneData(defaultPotentialClients),
-      posts: cloneData(defaultPosts)
+      posts: []
     };
   }
 }
