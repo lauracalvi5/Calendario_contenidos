@@ -1072,20 +1072,20 @@ function closeShareModal(e) {
   document.getElementById('shareModalOverlay').classList.remove('open');
 }
 
-// 1. Modificamos la función que genera el link para que incluya la "miniatura"
 async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
   const duration = parseInt(document.getElementById('shareDuration').value);
   
-  // Filtramos y preparamos los posts
-  const sharedPosts = await Promise.all(posts.filter(p => p.status === 'published').map(async p => {
-    // Si hay una imagen seleccionada, intentamos capturar una versión pequeña
-    // Esto es un placeholder lógico: en tu input file deberías tener la dataURL
-    return {
-      title: p.title,
-      content: p.content,
-      mediaPreview: p.localPreview || null // Aquí viajaría la imagen en Base64
-    };
+  // Filtramos solo los publicados y mapeamos los campos correctos
+  const sharedPosts = posts.filter(p => p.status === 'published').map(p => ({
+    title: p.title || 'Sin título',
+    caption: p.caption,
+    date: p.date,
+    networks: p.networks,
+    emoji: p.emoji,
+    ad: p.ad,
+    stats: p.stats,
+    fileNames: p.fileNames
   }));
 
   const payload = {
@@ -1094,7 +1094,8 @@ async function generateShareCode() {
     exp: duration > 0 ? Date.now() + duration * 86400000 : null
   };
 
-  const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+  // Codificamos el objeto para que viaje en la URL
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
   const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
   
   document.getElementById('shareResultLink').value = shareLink;
