@@ -274,6 +274,7 @@ const NET_COLORS = {
 };
 
 // ============= GLOBAL STATE =============
+const APP_STATE_KEY = 'contentcal_app_state_v1';
 let currentView = 'calendar';
 let currentYear = 2026;
 let currentMonth = 4;
@@ -285,14 +286,14 @@ let editingClientIdx = -1;
 let sharedCode = null;
 let sharedCodes = {};
 
-let clients = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
-let potentialClients = [
+const defaultClients = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
+const defaultPotentialClients = [
   {id:1, name:'Juan García', status:'consulta', date:'2026-05-02', phone:'+54 9 11 2345-6789', notes:'Interesado en Instagram'},
   {id:2, name:'María López', status:'reunión', date:'2026-05-08', phone:'+54 9 11 3456-7890', notes:'Videollamada confirmada'},
   {id:3, name:'Carlos Ruiz', status:'negociando', date:'2026-04-28', phone:'+54 9 11 4567-8901', notes:'Espera presupuesto'}
 ];
 
-let posts = [
+const defaultPosts = [
   {date:'2026-05-06 10:00', networks:['ig','fb'], caption:'Empezá la semana con nuestro café especial de temporada. El aroma que necesitás para arrancar bien el lunes. #CaféMorado', status:'scheduled', note:'', emoji:'☕', ad:false},
   {date:'2026-05-09 18:00', networks:['ig'], caption:'Detrás de cada taza, hay una historia. Visitanos y contanos la tuya. #Barista #Cafetería', status:'scheduled', note:'Usar foto de barista nueva', emoji:'📸', ad:false},
   {date:'2026-05-12 12:00', networks:['fb','li'], caption:'Brindamos espacios de trabajo tranquilos con WiFi y café de especialidad. Ideal para reuniones creativas.', status:'draft', note:'Confirmar con cliente', emoji:'💻', ad:true},
@@ -301,6 +302,45 @@ let posts = [
   {date:'2026-05-02 11:00', networks:['ig','fb'], caption:'Gracias por ser parte de nuestra comunidad. 1000 seguidores y contando.', status:'published', note:'', emoji:'🎉', ad:true, stats:{likes:124, comments:31, reach:980, saves:45}},
   {date:'2026-05-01 10:00', networks:['fb'], caption:'Feliz primer día de mayo. Les recordamos nuestros horarios especiales del feriado.', status:'published', note:'', emoji:'📅', ad:false, stats:{likes:67, comments:8, reach:520, saves:12}}
 ];
+
+function cloneData(data) {
+  return typeof structuredClone === 'function' ? structuredClone(data) : JSON.parse(JSON.stringify(data));
+}
+
+function loadAppState() {
+  const stored = localStorage.getItem(APP_STATE_KEY);
+  if (!stored) {
+    return {
+      clients: defaultClients.slice(),
+      potentialClients: cloneData(defaultPotentialClients),
+      posts: cloneData(defaultPosts)
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(stored);
+    return {
+      clients: Array.isArray(parsed.clients) && parsed.clients.length ? parsed.clients : defaultClients.slice(),
+      potentialClients: Array.isArray(parsed.potentialClients) && parsed.potentialClients.length ? parsed.potentialClients : cloneData(defaultPotentialClients),
+      posts: Array.isArray(parsed.posts) && parsed.posts.length ? parsed.posts : cloneData(defaultPosts)
+    };
+  } catch {
+    return {
+      clients: defaultClients.slice(),
+      potentialClients: cloneData(defaultPotentialClients),
+      posts: cloneData(defaultPosts)
+    };
+  }
+}
+
+function saveAppState() {
+  localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts }));
+}
+
+const initialState = loadAppState();
+let clients = initialState.clients;
+let potentialClients = initialState.potentialClients;
+let posts = initialState.posts;
 
 // ============= SHARED CODE FUNCTIONS =============
 function loadSharedCodes() {
@@ -389,6 +429,7 @@ function deleteClient() {
   if (idx > -1) {
     clients.splice(idx, 1);
     updateClientSelect();
+    saveAppState();
     closeDeleteClientModal();
   }
 }
@@ -412,6 +453,7 @@ function saveNewClient() {
   clients.push(name);
   updateClientSelect();
   selectClient(name);
+  saveAppState();
   closeAddClientModal();
 }
 
@@ -454,6 +496,7 @@ function saveClient() {
     client.id = Math.max(...potentialClients.map(p => p.id || 0), 0) + 1;
     potentialClients.push(client);
   }
+  saveAppState();
   closeClientModal();
   renderView();
 }
@@ -461,6 +504,7 @@ function saveClient() {
 function deleteClientPotential(idx) {
   if (confirm('¿Borrar este cliente potencial?')) {
     potentialClients.splice(idx, 1);
+    saveAppState();
     renderView();
   }
 }
@@ -471,6 +515,7 @@ function deletePost() {
   if (!confirm('¿Borrar esta publicación? Esta acción no se puede deshacer.')) return;
   posts.splice(editingIdx, 1);
   editingIdx = -1;
+  saveAppState();
   closeModal();
   renderView();
 }
@@ -667,6 +712,7 @@ function savePost() {
   const post = {date, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)]};
   if (editingIdx >= 0) posts[editingIdx] = post;
   else posts.push(post);
+  saveAppState();
   closeModal();
   renderView();
 }
