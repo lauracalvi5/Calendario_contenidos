@@ -209,6 +209,7 @@
       <div class="field"><div class="field-label">Título</div><input type="text" class="field-input" id="postTitle" placeholder="Ej: Lanzamiento de campaña"></div>
       <div class="field"><div class="field-label">Redes sociales</div><div class="network-picker"><span class="net-tag ig" onclick="toggleNet(this,'ig')">Instagram</span><span class="net-tag fb" onclick="toggleNet(this,'fb')">Facebook</span><span class="net-tag wa" onclick="toggleNet(this,'wa')">WhatsApp</span><span class="net-tag li" onclick="toggleNet(this,'li')">LinkedIn</span></div></div>
       <div class="field"><div class="field-label">Caption / Texto</div><textarea class="field-textarea" id="postCaption" placeholder="Escribí el texto de la publicación..."></textarea></div>
+      <div class="field"><div class="field-label">Estadísticas de la publicación</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><input type="number" min="0" class="field-input" id="postReach" placeholder="Alcance"><input type="number" min="0" class="field-input" id="postInquiries" placeholder="Consultas"><input type="number" min="0" class="field-input" id="postFollowers" placeholder="Seguidores nuevos"></div></div>
       <div class="field"><div class="field-label">Imagen o video</div><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="handleFileUpload(this)"><div style="font-size:22px;margin-bottom:4px">🖼️</div><div class="upload-label">Hacé clic para subir archivos</div><div class="upload-sub">JPG, PNG, MP4 — hasta 50 MB</div></div><div class="preview-imgs" id="previewImgs"></div></div>
       <div class="field"><div class="field-label">Estado</div><div class="status-picker"><span class="status-opt" data-st="draft" onclick="selectStatus(this,'draft')">Borrador</span><span class="status-opt" data-st="scheduled" onclick="selectStatus(this,'scheduled')">Programado</span><span class="status-opt" data-st="published" onclick="selectStatus(this,'published')">Publicado</span></div></div>
       <div class="field"><div class="field-label">Tipo de publicación</div><div class="toggle-row" id="adToggleRow" onclick="toggleAd()"><div class="toggle-label"><div class="toggle-label-main">¿Es publicidad paga? 💰</div><div class="toggle-label-sub">Activá si es un aviso pago, boosting o campaña</div></div><div class="toggle-switch" id="adToggleSwitch"></div></div></div>
@@ -347,6 +348,40 @@ function loadAppState() {
 
 function saveAppState() {
   localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts }));
+}
+
+function normalizeStatValue(value) {
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function getPostStats(post) {
+  const stats = post.stats || {};
+  return {
+    reach: normalizeStatValue(stats.reach ?? stats.alcance),
+    inquiries: normalizeStatValue(stats.inquiries ?? stats.consultas),
+    followers: normalizeStatValue(stats.followers ?? stats.seguidores ?? stats.newFollowers)
+  };
+}
+
+function summarizePosts(list) {
+  return list.reduce((accumulator, post) => {
+    const stats = getPostStats(post);
+    accumulator.reach += stats.reach;
+    accumulator.inquiries += stats.inquiries;
+    accumulator.followers += stats.followers;
+    accumulator.count += 1;
+    return accumulator;
+  }, { reach: 0, inquiries: 0, followers: 0, count: 0 });
+}
+
+function formatMetric(value) {
+  return Number(value || 0).toLocaleString('es-AR');
+}
+
+function getMonthPosts(year, month) {
+  const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+  return posts.filter(post => post.date.startsWith(monthKey));
 }
 
 const initialState = loadAppState();
@@ -574,8 +609,8 @@ function renderCalendar() {
       const pi = posts.indexOf(p);
       const net = p.networks[0] || 'ig';
       const dotCls = p.status === 'published' ? 'dot-published' : p.status === 'scheduled' ? 'dot-scheduled' : 'dot-draft';
-      const pillTitle = (p.title || p.caption || 'Sin título').trim().slice(0, 24);
-      html += `<div class="post-pill ${net}" onclick="event.stopPropagation();openModal(${pi})"><span class="status-dot ${dotCls}"></span><span style="overflow:hidden;text-overflow:ellipsis;">${NET_LABELS[net]} ${p.emoji || ''} ${pillTitle}</span>${p.ad ? '<span class="ad-pill-badge">AD</span>' : ''}</div>`;
+      const pillTitle = (p.title || 'Sin título').trim().slice(0, 32);
+      html += `<div class="post-pill ${net}" onclick="event.stopPropagation();openModal(${pi})"><span class="status-dot ${dotCls}"></span><span style="overflow:hidden;text-overflow:ellipsis;">${pillTitle}</span>${p.ad ? '<span class="ad-pill-badge">AD</span>' : ''}</div>`;
     });
     if (dayPosts.length > 3) html += `<div style="font-size:10px;color:var(--text-3);padding:1px 2px">+${dayPosts.length - 3} más</div>`;
     html += '</div>';
@@ -649,7 +684,55 @@ function renderList() {
 // ============= STATS RENDERING (simplified) =============
 function renderStats() {
   const mc = document.getElementById('mainContent');
-  mc.innerHTML = '<div class="empty"><div class="empty-icon">📊</div>Vista de estadísticas</div>';
+  const monthPosts = getMonthPosts(currentYear, currentMonth);
+  const monthSummary = summarizePosts(monthPosts);
+  const allSummary = summarizePosts(posts);
+  const sortedMonthPosts = [...monthPosts].sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
+  const maxMonthReach = Math.max(...sortedMonthPosts.map(post => getPostStats(post).reach), 0);
+  const monthLabel = `${MONTHS[currentMonth]} ${currentYear}`;
+
+  let html = `<div class="stats-title">Resumen mensual</div>`;
+  html += `<div class="metrics-grid">
+    <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-val">${formatMetric(monthSummary.reach)}</div><div class="metric-change change-neutral">${monthLabel}</div></div>
+    <div class="metric-card"><div class="metric-label">Consultas</div><div class="metric-val">${formatMetric(monthSummary.inquiries)}</div><div class="metric-change change-neutral">Publicaciones del mes</div></div>
+    <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(monthSummary.followers)}</div><div class="metric-change change-neutral">Acumulado mensual</div></div>
+    <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(monthSummary.count)}</div><div class="metric-change change-neutral">Cargadas este mes</div></div>
+  </div>`;
+
+  html += `<div class="section-label">Publicaciones de ${monthLabel}</div>`;
+  if (!sortedMonthPosts.length) {
+    html += '<div class="empty"><div class="empty-icon">📊</div>No hay publicaciones en este mes</div>';
+  } else {
+    const maxReach = maxMonthReach || 1;
+    sortedMonthPosts.forEach(post => {
+      const postStats = getPostStats(post);
+      const title = (post.title || post.caption || 'Sin título').trim();
+      const barWidth = Math.max(6, Math.round((postStats.reach / maxReach) * 100));
+      html += `<div class="stat-post-row" onclick="openModal(${posts.indexOf(post)})">
+        <div class="stat-thumb">${post.emoji || '📝'}</div>
+        <div class="stat-info">
+          <div class="stat-cap">${title}</div>
+          <div class="stat-sub">${formatDate(post.date)} · ${post.status === 'published' ? 'Publicado' : post.status === 'scheduled' ? 'Programado' : 'Borrador'}</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+        </div>
+        <div class="stat-nums">
+          <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(postStats.reach)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(postStats.inquiries)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(postStats.followers)}</div></div>
+        </div>
+      </div>`;
+    });
+  }
+
+  html += `<div class="section-label">Resumen acumulado de todas las publicaciones</div>`;
+  html += `<div class="metrics-grid">
+    <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-val">${formatMetric(allSummary.reach)}</div><div class="metric-change change-neutral">Todas las publicaciones</div></div>
+    <div class="metric-card"><div class="metric-label">Consultas totales</div><div class="metric-val">${formatMetric(allSummary.inquiries)}</div><div class="metric-change change-neutral">Histórico completo</div></div>
+    <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(allSummary.followers)}</div><div class="metric-change change-neutral">Histórico completo</div></div>
+    <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(allSummary.count)}</div><div class="metric-change change-neutral">Subidas en total</div></div>
+  </div>`;
+
+  mc.innerHTML = html;
 }
 
 // ============= CLIENTS RENDERING =============
@@ -686,6 +769,9 @@ function openModal(idx, prefillDate) {
   document.getElementById('postTitle').value = '';
   document.getElementById('postCaption').value = '';
   document.getElementById('postNote').value = '';
+  document.getElementById('postReach').value = '';
+  document.getElementById('postInquiries').value = '';
+  document.getElementById('postFollowers').value = '';
   document.getElementById('previewImgs').innerHTML = '';
   document.getElementById('adToggleRow').classList.remove('ad-active');
   selectedStatus = 'scheduled';
@@ -697,6 +783,10 @@ function openModal(idx, prefillDate) {
     document.getElementById('postTitle').value = p.title || '';
     document.getElementById('postCaption').value = p.caption;
     document.getElementById('postNote').value = p.note || '';
+    const stats = getPostStats(p);
+    document.getElementById('postReach').value = stats.reach || '';
+    document.getElementById('postInquiries').value = stats.inquiries || '';
+    document.getElementById('postFollowers').value = stats.followers || '';
     p.networks.forEach(n => {
       document.querySelectorAll('.net-tag').forEach(t => {
         if (t.classList.contains(n)) t.classList.add('selected');
@@ -760,12 +850,15 @@ function savePost() {
   const title = document.getElementById('postTitle').value.trim();
   const caption = document.getElementById('postCaption').value.trim();
   const note = document.getElementById('postNote').value.trim();
+  const reach = normalizeStatValue(document.getElementById('postReach').value);
+  const inquiries = normalizeStatValue(document.getElementById('postInquiries').value);
+  const followers = normalizeStatValue(document.getElementById('postFollowers').value);
   const networks = Array.from(document.querySelectorAll('.net-tag.selected')).map(t => [...t.classList].find(c => c !== 'net-tag' && c !== 'selected'));
   if (!title && !caption) { alert('Escribí un título o el texto de la publicación.'); return; }
   if (!networks.length) { alert('Seleccioná al menos una red social.'); return; }
   
   const emojis = ['📸','☕','🎉','💡','🌿','🍋','💻','✨','🎨','📅','🛍️','🔥'];
-  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)]};
+  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)], stats: {reach, inquiries, followers}};
   if (editingIdx >= 0) posts[editingIdx] = post;
   else posts.push(post);
   saveAppState();
