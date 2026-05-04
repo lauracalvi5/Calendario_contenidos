@@ -1139,40 +1139,44 @@ function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
   const shareData = params.get('data');
   
-  if (shareData) {
-    try {
-      // Desencriptamos la URL para recuperar los objetos
-      const decoded = JSON.parse(decodeURIComponent(atob(shareData)));
+  if (!shareData) return;
+
+  try {
+    // Usamos una decodificación que soporte caracteres especiales de forma segura
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(shareData))));
+    
+    if (decoded.exp && Date.now() > decoded.exp) {
+      alert('Este link ha expirado.');
+      window.location.href = window.location.pathname;
+      return;
+    }
+    
+    isSharedView = true;
+    posts = decoded.p || []; 
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      // Actualizamos el nombre del cliente si el elemento existe
+      const clientLabel = document.getElementById('clientSelText');
+      if (clientLabel) clientLabel.textContent = decoded.c;
       
-      if (decoded.exp && Date.now() > decoded.exp) {
-        alert('Este link de compartición ha expirado.');
-        window.location.href = window.location.pathname;
-        return;
+      // Bloqueamos edición
+      const clientSelect = document.getElementById('clientSel');
+      if (clientSelect) {
+        clientSelect.style.pointerEvents = 'none';
+        clientSelect.style.opacity = '0.6';
       }
       
-      isSharedView = true;
-      
-      // Pisamos los datos locales con los que viajan en la URL
-      posts = decoded.p;
-      document.getElementById('clientSelText').textContent = decoded.c;
-      
-      // Bloqueamos la UI
-      document.getElementById('clientSel').style.pointerEvents = 'none';
-      document.getElementById('clientSel').style.opacity = '0.6';
-      document.getElementById('shareBtn').style.display = 'none';
-      
-      const deleteClientBtn = document.getElementById('deleteClientBtn');
-      if (deleteClientBtn) deleteClientBtn.style.display = 'none';
-      
-      const info = document.createElement('div');
-      info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
-      info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas y estadísticas. No se pueden realizar cambios.';
-      document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
-      
-    } catch (e) {
-      console.error("Error al leer el link compartido", e);
-      alert("El link compartido es inválido o está corrupto.");
-    }
+      // Ocultamos botones que no deben verse en la vista compartida
+      ['shareBtn', 'deleteClientBtn', 'addPostBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+
+      renderPosts(); // Forzamos el renderizado con los nuevos datos
+    });
+  } catch (e) {
+    console.error("Error detallado:", e);
+    alert("El link compartido es inválido o está corrupto.");
   }
 }
 
