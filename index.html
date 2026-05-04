@@ -1075,24 +1075,66 @@ function closeShareModal(e) {
 function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
   const duration = parseInt(document.getElementById('shareDuration').value);
-  const code = 'share_' + Math.random().toString(36).substr(2, 9).toUpperCase();
-  const expiresAt = duration > 0 ? new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString() : null;
-  sharedCodes[code] = {clientName, createdAt: new Date().toISOString(), expiresAt};
-  saveSharedCodes();
+  
+  // Filtramos solo los posts publicados para enviar en el link
+  const sharedPosts = posts.filter(p => p.status === 'published');
+  
+  const payload = {
+    c: clientName,
+    p: sharedPosts,
+    exp: duration > 0 ? Date.now() + duration * 86400000 : null
+  };
+  
+  // Convertimos a string, codificamos caracteres y pasamos a Base64
+  const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+  
   const baseUrl = window.location.origin + window.location.pathname;
-  const shareLink = `${baseUrl}?code=${code}`;
+  // Pasamos toda la info encriptada en el parámetro ?data=
+  const shareLink = `${baseUrl}?data=${encoded}`;
+  
   document.getElementById('shareResultLink').value = shareLink;
   document.getElementById('shareResultField').style.display = 'block';
 }
 
-function copyShareLink() {
-  const link = document.getElementById('shareResultLink').value;
-  navigator.clipboard.writeText(link).then(() => {
-    const btn = event.target;
-    const originalText = btn.textContent;
-    btn.textContent = '✓ Copiado';
-    setTimeout(() => { btn.textContent = originalText; }, 2000);
-  }).catch(() => alert('No se pudo copiar al portapapeles'));
+function checkSharedAccess() {
+  const params = new URLSearchParams(window.location.search);
+  const shareData = params.get('data');
+  
+  if (shareData) {
+    try {
+      // Desencriptamos la URL para recuperar los objetos
+      const decoded = JSON.parse(decodeURIComponent(atob(shareData)));
+      
+      if (decoded.exp && Date.now() > decoded.exp) {
+        alert('Este link de compartición ha expirado.');
+        window.location.href = window.location.pathname;
+        return;
+      }
+      
+      isSharedView = true;
+      
+      // Pisamos los datos locales con los que viajan en la URL
+      posts = decoded.p;
+      document.getElementById('clientSelText').textContent = decoded.c;
+      
+      // Bloqueamos la UI
+      document.getElementById('clientSel').style.pointerEvents = 'none';
+      document.getElementById('clientSel').style.opacity = '0.6';
+      document.getElementById('shareBtn').style.display = 'none';
+      
+      const deleteClientBtn = document.getElementById('deleteClientBtn');
+      if (deleteClientBtn) deleteClientBtn.style.display = 'none';
+      
+      const info = document.createElement('div');
+      info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
+      info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas y estadísticas. No se pueden realizar cambios.';
+      document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
+      
+    } catch (e) {
+      console.error("Error al leer el link compartido", e);
+      alert("El link compartido es inválido o está corrupto.");
+    }
+  }
 }
 
 // ============= INITIALIZATION =============
