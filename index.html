@@ -280,6 +280,9 @@ const APP_STATE_KEY = 'contentcal_app_state_v1';
 let currentView = 'calendar';
 let currentYear = 2026;
 let currentMonth = 4;
+let statsFilterYear = currentYear;
+let statsFilterMonth = currentMonth;
+let statsViewMode = 'monthly';
 let editingIdx = -1;
 let selectedStatus = 'scheduled';
 let isAd = false;
@@ -382,6 +385,34 @@ function formatMetric(value) {
 function getMonthPosts(year, month) {
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
   return posts.filter(post => post.date.startsWith(monthKey));
+}
+
+function getYearPosts(year) {
+  const yearKey = `${year}-`;
+  return posts.filter(post => post.date.startsWith(yearKey));
+}
+
+function getAvailableStatsYears() {
+  const years = new Set(
+    posts
+      .map(post => Number.parseInt(String(post.date).slice(0, 4), 10))
+      .filter(year => Number.isFinite(year))
+  );
+  years.add(currentYear);
+  return [...years].sort((a, b) => b - a);
+}
+
+function onStatsFilterChange() {
+  const modeEl = document.getElementById('statsModeSel');
+  const yearEl = document.getElementById('statsYearSel');
+  const monthEl = document.getElementById('statsMonthSel');
+  if (!modeEl || !yearEl) return;
+
+  statsViewMode = modeEl.value;
+  statsFilterYear = Number.parseInt(yearEl.value, 10);
+  if (monthEl) statsFilterMonth = Number.parseInt(monthEl.value, 10);
+
+  if (currentView === 'stats') renderStats();
 }
 
 const initialState = loadAppState();
@@ -684,41 +715,138 @@ function renderList() {
 // ============= STATS RENDERING (simplified) =============
 function renderStats() {
   const mc = document.getElementById('mainContent');
-  const monthPosts = getMonthPosts(currentYear, currentMonth);
-  const monthSummary = summarizePosts(monthPosts);
-  const allSummary = summarizePosts(posts);
-  const sortedMonthPosts = [...monthPosts].sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
-  const maxMonthReach = Math.max(...sortedMonthPosts.map(post => getPostStats(post).reach), 0);
-  const monthLabel = `${MONTHS[currentMonth]} ${currentYear}`;
+  const availableYears = getAvailableStatsYears();
+  if (!availableYears.includes(statsFilterYear)) statsFilterYear = availableYears[0];
+  if (!Number.isInteger(statsFilterMonth) || statsFilterMonth < 0 || statsFilterMonth > 11) statsFilterMonth = currentMonth;
 
-  let html = `<div class="stats-title">Resumen mensual</div>`;
-  html += `<div class="metrics-grid">
-    <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-val">${formatMetric(monthSummary.reach)}</div><div class="metric-change change-neutral">${monthLabel}</div></div>
-    <div class="metric-card"><div class="metric-label">Consultas</div><div class="metric-val">${formatMetric(monthSummary.inquiries)}</div><div class="metric-change change-neutral">Publicaciones del mes</div></div>
-    <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(monthSummary.followers)}</div><div class="metric-change change-neutral">Acumulado mensual</div></div>
-    <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(monthSummary.count)}</div><div class="metric-change change-neutral">Cargadas este mes</div></div>
+  const allSummary = summarizePosts(posts);
+  const yearOptions = availableYears
+    .map(year => `<option value="${year}"${year === statsFilterYear ? ' selected' : ''}>${year}</option>`)
+    .join('');
+  const monthOptions = MONTHS
+    .map((monthName, monthIdx) => `<option value="${monthIdx}"${monthIdx === statsFilterMonth ? ' selected' : ''}>${monthName}</option>`)
+    .join('');
+
+  let html = `<div class="list-header">
+    <select id="statsModeSel" class="filter-sel" onchange="onStatsFilterChange()">
+      <option value="monthly"${statsViewMode === 'monthly' ? ' selected' : ''}>Resumen mensual</option>
+      <option value="annual"${statsViewMode === 'annual' ? ' selected' : ''}>Resumen anual</option>
+      <option value="cumulative"${statsViewMode === 'cumulative' ? ' selected' : ''}>Acumulado mes a mes</option>
+    </select>
+    <select id="statsYearSel" class="filter-sel" onchange="onStatsFilterChange()">${yearOptions}</select>
+    ${statsViewMode !== 'annual' ? `<select id="statsMonthSel" class="filter-sel" onchange="onStatsFilterChange()">${monthOptions}</select>` : ''}
   </div>`;
 
-  html += `<div class="section-label">Publicaciones de ${monthLabel}</div>`;
-  if (!sortedMonthPosts.length) {
-    html += '<div class="empty"><div class="empty-icon">📊</div>No hay publicaciones en este mes</div>';
-  } else {
-    const maxReach = maxMonthReach || 1;
-    sortedMonthPosts.forEach(post => {
-      const postStats = getPostStats(post);
-      const title = (post.title || post.caption || 'Sin título').trim();
-      const barWidth = Math.max(6, Math.round((postStats.reach / maxReach) * 100));
-      html += `<div class="stat-post-row" onclick="openModal(${posts.indexOf(post)})">
-        <div class="stat-thumb">${post.emoji || '📝'}</div>
+  if (statsViewMode === 'monthly') {
+    const monthPosts = getMonthPosts(statsFilterYear, statsFilterMonth);
+    const monthSummary = summarizePosts(monthPosts);
+    const sortedMonthPosts = [...monthPosts].sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
+    const maxMonthReach = Math.max(...sortedMonthPosts.map(post => getPostStats(post).reach), 0);
+    const monthLabel = `${MONTHS[statsFilterMonth]} ${statsFilterYear}`;
+
+    html += `<div class="stats-title">Resumen mensual</div>`;
+    html += `<div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-val">${formatMetric(monthSummary.reach)}</div><div class="metric-change change-neutral">${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Consultas</div><div class="metric-val">${formatMetric(monthSummary.inquiries)}</div><div class="metric-change change-neutral">Publicaciones del mes</div></div>
+      <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(monthSummary.followers)}</div><div class="metric-change change-neutral">Acumulado mensual</div></div>
+      <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(monthSummary.count)}</div><div class="metric-change change-neutral">Cargadas este mes</div></div>
+    </div>`;
+
+    html += `<div class="section-label">Publicaciones de ${monthLabel}</div>`;
+    if (!sortedMonthPosts.length) {
+      html += '<div class="empty"><div class="empty-icon">📊</div>No hay publicaciones en este mes</div>';
+    } else {
+      const maxReach = maxMonthReach || 1;
+      sortedMonthPosts.forEach(post => {
+        const postStats = getPostStats(post);
+        const title = (post.title || post.caption || 'Sin título').trim();
+        const barWidth = Math.max(6, Math.round((postStats.reach / maxReach) * 100));
+        html += `<div class="stat-post-row" onclick="openModal(${posts.indexOf(post)})">
+          <div class="stat-thumb">${post.emoji || '📝'}</div>
+          <div class="stat-info">
+            <div class="stat-cap">${title}</div>
+            <div class="stat-sub">${formatDate(post.date)} · ${post.status === 'published' ? 'Publicado' : post.status === 'scheduled' ? 'Programado' : 'Borrador'}</div>
+            <div class="bar-wrap"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+          </div>
+          <div class="stat-nums">
+            <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(postStats.reach)}</div></div>
+            <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(postStats.inquiries)}</div></div>
+            <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(postStats.followers)}</div></div>
+          </div>
+        </div>`;
+      });
+    }
+  } else if (statsViewMode === 'annual') {
+    const yearPosts = getYearPosts(statsFilterYear);
+    const annualSummary = summarizePosts(yearPosts);
+    const monthlyBreakdown = MONTHS.map((monthName, monthIdx) => ({
+      monthName,
+      monthIdx,
+      summary: summarizePosts(getMonthPosts(statsFilterYear, monthIdx))
+    }));
+
+    html += `<div class="stats-title">Resumen anual ${statsFilterYear}</div>`;
+    html += `<div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Alcance anual</div><div class="metric-val">${formatMetric(annualSummary.reach)}</div><div class="metric-change change-neutral">Año completo</div></div>
+      <div class="metric-card"><div class="metric-label">Consultas anuales</div><div class="metric-val">${formatMetric(annualSummary.inquiries)}</div><div class="metric-change change-neutral">Año completo</div></div>
+      <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(annualSummary.followers)}</div><div class="metric-change change-neutral">Año completo</div></div>
+      <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(annualSummary.count)}</div><div class="metric-change change-neutral">Publicaciones del año</div></div>
+    </div>`;
+
+    html += `<div class="section-label">Detalle por mes (${statsFilterYear})</div>`;
+    monthlyBreakdown.forEach(row => {
+      html += `<div class="stat-post-row">
+        <div class="stat-thumb">${row.monthName.slice(0, 3)}</div>
         <div class="stat-info">
-          <div class="stat-cap">${title}</div>
-          <div class="stat-sub">${formatDate(post.date)} · ${post.status === 'published' ? 'Publicado' : post.status === 'scheduled' ? 'Programado' : 'Borrador'}</div>
-          <div class="bar-wrap"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+          <div class="stat-cap">${row.monthName}</div>
+          <div class="stat-sub">${formatMetric(row.summary.count)} publicaciones</div>
         </div>
         <div class="stat-nums">
-          <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(postStats.reach)}</div></div>
-          <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(postStats.inquiries)}</div></div>
-          <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(postStats.followers)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(row.summary.reach)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(row.summary.inquiries)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(row.summary.followers)}</div></div>
+        </div>
+      </div>`;
+    });
+  } else {
+    const cappedMonth = statsFilterMonth;
+    const monthLabel = `${MONTHS[cappedMonth]} ${statsFilterYear}`;
+    const cumulativeRows = [];
+    const running = { reach: 0, inquiries: 0, followers: 0, count: 0 };
+
+    for (let monthIdx = 0; monthIdx <= cappedMonth; monthIdx++) {
+      const monthSummary = summarizePosts(getMonthPosts(statsFilterYear, monthIdx));
+      running.reach += monthSummary.reach;
+      running.inquiries += monthSummary.inquiries;
+      running.followers += monthSummary.followers;
+      running.count += monthSummary.count;
+      cumulativeRows.push({ monthName: MONTHS[monthIdx], summary: { ...running } });
+    }
+
+    const cumulativeSummary = cumulativeRows.length
+      ? cumulativeRows[cumulativeRows.length - 1].summary
+      : { reach: 0, inquiries: 0, followers: 0, count: 0 };
+
+    html += `<div class="stats-title">Acumulado mes a mes</div>`;
+    html += `<div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Alcance acumulado</div><div class="metric-val">${formatMetric(cumulativeSummary.reach)}</div><div class="metric-change change-neutral">Hasta ${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Consultas acumuladas</div><div class="metric-val">${formatMetric(cumulativeSummary.inquiries)}</div><div class="metric-change change-neutral">Hasta ${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Seguidores acumulados</div><div class="metric-val">${formatMetric(cumulativeSummary.followers)}</div><div class="metric-change change-neutral">Hasta ${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(cumulativeSummary.count)}</div><div class="metric-change change-neutral">Acumuladas en el año</div></div>
+    </div>`;
+
+    html += `<div class="section-label">Evolución acumulada (${statsFilterYear})</div>`;
+    cumulativeRows.forEach(row => {
+      html += `<div class="stat-post-row">
+        <div class="stat-thumb">${row.monthName.slice(0, 3)}</div>
+        <div class="stat-info">
+          <div class="stat-cap">Hasta ${row.monthName}</div>
+          <div class="stat-sub">${formatMetric(row.summary.count)} publicaciones acumuladas</div>
+        </div>
+        <div class="stat-nums">
+          <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(row.summary.reach)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(row.summary.inquiries)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(row.summary.followers)}</div></div>
         </div>
       </div>`;
     });
