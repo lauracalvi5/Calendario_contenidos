@@ -1074,26 +1074,28 @@ function closeShareModal(e) {
 
 async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
-  const durationDays = Number.parseInt(document.getElementById('shareDuration').value, 10);
-  const expiresAt = durationDays > 0
-    ? new Date(Date.now() + (durationDays * 24 * 60 * 60 * 1000)).toISOString()
-    : null;
-
-  let code = '';
-  do {
-    code = `${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
-  } while (sharedCodes[code]);
-
-  sharedCodes[code] = {
-    clientName,
-    createdAt: new Date().toISOString(),
-    expiresAt
+  
+  const payload = {
+    c: clientName,
+    p: posts, // Aquí van todos los cargados
+    exp: null 
   };
-  saveSharedCodes();
 
-  const shareLink = `${window.location.origin}${window.location.pathname}?code=${encodeURIComponent(code)}`;
-  document.getElementById('shareResultLink').value = shareLink;
-  document.getElementById('shareResultField').style.display = 'block';
+  try {
+    const jsonStr = JSON.stringify(payload);
+    // Codificamos y reemplazamos caracteres problemáticos (+, /, =)
+    let encoded = btoa(unescape(encodeURIComponent(jsonStr)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, ''); 
+
+    const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+    
+    document.getElementById('shareResultLink').value = shareLink;
+    document.getElementById('shareResultField').style.display = 'block';
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 // 2. Modificamos el Render para que muestre la imagen grande
@@ -1124,51 +1126,50 @@ function renderMedia(post) {
 }
 function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
-  const codeParam = params.get('code');
+  let shareData = params.get('data');
+  
+  if (!shareData) return;
 
-  if (codeParam && sharedCodes[codeParam]) {
-    const codeData = sharedCodes[codeParam];
-    if (codeData.expiresAt && new Date() > new Date(codeData.expiresAt)) {
-      alert('Este link de compartición ha expirado.');
-      window.location.href = window.location.pathname;
-      return;
+  try {
+    // 1. Restaurar el formato Base64 estándar
+    shareData = shareData.replace(/-/g, '+').replace(/_/g, '/');
+    while (shareData.length % 4) {
+      shareData += '=';
     }
 
+    // 2. Decodificar
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(shareData))));
+    
+    // 3. Cargar datos
     isSharedView = true;
-    const clientLabel = document.getElementById('clientSelText');
-    if (clientLabel) clientLabel.textContent = codeData.clientName || 'Cliente';
-  } else {
-    // Compatibilidad temporal con links legacy que incluyen ?data=
-    let shareData = params.get('data');
-    if (!shareData) return;
-
-    try {
-      shareData = shareData.replace(/-/g, '+').replace(/_/g, '/');
-      while (shareData.length % 4) shareData += '=';
-      const decoded = JSON.parse(decodeURIComponent(escape(atob(shareData))));
-
-      isSharedView = true;
-      if (Array.isArray(decoded.p)) posts = decoded.p;
-      const clientLabel = document.getElementById('clientSelText');
-      if (clientLabel) clientLabel.textContent = decoded.c || 'Cliente';
-    } catch (e) {
-      console.error('Error de enlace compartido:', e);
-      alert('El link compartido es inválido o está incompleto. Genera uno nuevo.');
-      window.location.href = window.location.pathname;
-      return;
+    posts = decoded.p || [];
+    // IMPORTANTE: Esto refresca la pantalla con los datos del link
+    if (typeof renderPosts === 'function') {
+    renderPosts(); 
+    } else {
+      // Si no tenés una función renderPosts, llamá a la que uses para dibujar la lista
+      actualizarVistaPublicaciones(); 
     }
+    // Usamos un pequeño delay para asegurar que el DOM de Sabium cargó
+    setTimeout(() => {
+      const clientLabel = document.getElementById('clientSelText');
+      if (clientLabel) clientLabel.textContent = decoded.c;
+      
+      // Ocultar herramientas de edición
+      const controls = ['shareBtn', 'addPostBtn', 'clientSel'];
+      controls.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+      });
+
+      if (typeof renderPosts === 'function') renderPosts();
+    }, 100);
+
+  } catch (e) {
+    console.error("Error crítico de decodificación:", e);
+    // Si falla, mostramos un mensaje más técnico para ayudarte a debugear
+    alert("Error de enlace: Los datos son demasiado extensos o el formato es incompatible.");
   }
-
-  document.getElementById('clientSel').style.pointerEvents = 'none';
-  document.getElementById('clientSel').style.opacity = '0.6';
-  document.getElementById('shareBtn').style.display = 'none';
-  const deleteClientBtn = document.getElementById('deleteClientBtn');
-  if (deleteClientBtn) deleteClientBtn.style.display = 'none';
-
-  const info = document.createElement('div');
-  info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
-  info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas. Puedes ver archivos, clientes y estadísticas. No se pueden realizar cambios.';
-  document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
 }
 // ============= INITIALIZATION =============
 function initEventListeners() {
