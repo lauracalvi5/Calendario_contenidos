@@ -210,7 +210,7 @@
       <div class="field"><div class="field-label">Redes sociales</div><div class="network-picker"><span class="net-tag ig" onclick="toggleNet(this,'ig')">Instagram</span><span class="net-tag fb" onclick="toggleNet(this,'fb')">Facebook</span><span class="net-tag wa" onclick="toggleNet(this,'wa')">WhatsApp</span><span class="net-tag li" onclick="toggleNet(this,'li')">LinkedIn</span></div></div>
       <div class="field"><div class="field-label">Caption / Texto</div><textarea class="field-textarea" id="postCaption" placeholder="Escribí el texto de la publicación..."></textarea></div>
       <div class="field"><div class="field-label">Estadísticas de la publicación</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><input type="number" min="0" class="field-input" id="postReach" placeholder="Alcance"><input type="number" min="0" class="field-input" id="postInquiries" placeholder="Consultas"><input type="number" min="0" class="field-input" id="postFollowers" placeholder="Seguidores nuevos"></div></div>
-      <div class="field"><div class="field-label">Imagen o video</div><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="handleFileUpload(this)"><div style="font-size:22px;margin-bottom:4px">🖼️</div><div class="upload-label">Hacé clic para subir archivos</div><div class="upload-sub">JPG, PNG, MP4 — hasta 50 MB</div></div><div class="preview-imgs" id="previewImgs"></div></div>
+      <div class="field"><div class="field-label">Imagen o video</div><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="handleFileUpload(this)"><div style="font-size:22px;margin-bottom:4px">🖼️</div><div class="upload-label">Hacé clic para subir archivos</div><div class="upload-sub">JPG, PNG, MP4 — hasta 100 MB</div></div><div class="preview-imgs" id="previewImgs"></div></div>
       <div class="field"><div class="field-label">Estado</div><div class="status-picker"><span class="status-opt" data-st="draft" onclick="selectStatus(this,'draft')">Borrador</span><span class="status-opt" data-st="scheduled" onclick="selectStatus(this,'scheduled')">Programado</span><span class="status-opt" data-st="published" onclick="selectStatus(this,'published')">Publicado</span></div></div>
       <div class="field"><div class="field-label">Tipo de publicación</div><div class="toggle-row" id="adToggleRow" onclick="toggleAd()"><div class="toggle-label"><div class="toggle-label-main">¿Es publicidad paga? 💰</div><div class="toggle-label-sub">Activá si es un aviso pago, boosting o campaña</div></div><div class="toggle-switch" id="adToggleSwitch"></div></div></div>
       <div class="field"><div class="field-label">Nota interna (solo vos)</div><input type="text" class="field-input" id="postNote" placeholder="Ej: confirmar hashtags con cliente..."></div>
@@ -449,9 +449,11 @@ function checkSharedAccess() {
       if (btn.textContent.trim() !== 'Calendario') btn.disabled = true;
     });
     document.querySelectorAll('.add-btn').forEach(btn => btn.style.display = 'none');
+    document.querySelectorAll('.btn-save').forEach(btn => btn.style.display = 'none');
+    document.querySelectorAll('.btn-cancel').forEach(btn => btn.textContent = 'Cerrar');
     const info = document.createElement('div');
     info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
-    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas';
+    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas. Puedes ver archivos, clientes y estadísticas.';
     document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
   }
 }
@@ -690,8 +692,10 @@ function renderList() {
     const caption = (p.caption || '').trim();
     const displayText = title || caption || 'Sin título';
     const snippet = caption && caption !== displayText ? caption : '';
+    const fileNames = p.fileNames || [];
+    const filesDisplay = fileNames.length ? `<div class="post-note"><span class="note-icon">📎</span>${fileNames.length} archivo${fileNames.length > 1 ? 's' : ''}</div>` : '';
 
-    html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="openModal(${pi})">
+    html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="${isSharedView ? '' : `openModal(${pi})`}" style="${isSharedView ? 'cursor: default;' : ''}">
       <div class="post-thumb">${p.emoji || '📝'}</div>
       <div class="post-info">
         <div class="post-caption-text">${displayText}</div>
@@ -704,6 +708,7 @@ function renderList() {
           <span class="note-icon">${NET_LABELS[net] || net.toUpperCase()}</span>
           ${snippet || 'Sin texto adicional'}
         </div>
+        ${filesDisplay}
       </div>
     </div>`;
   });
@@ -736,6 +741,10 @@ function renderStats() {
     <select id="statsYearSel" class="filter-sel" onchange="onStatsFilterChange()">${yearOptions}</select>
     ${statsViewMode !== 'annual' ? `<select id="statsMonthSel" class="filter-sel" onchange="onStatsFilterChange()">${monthOptions}</select>` : ''}
   </div>`;
+
+  if (isSharedView) {
+    document.querySelectorAll('.filter-sel').forEach(el => el.disabled = false);
+  }
 
   if (statsViewMode === 'monthly') {
     const monthPosts = getMonthPosts(statsFilterYear, statsFilterMonth);
@@ -874,14 +883,15 @@ function renderClients() {
     rechazado: {bg:'#FEF1EC', color:'#C0392B', label:'❌ Rechazado'}
   };
   
-  let html = `<div class="list-header"><button class="add-btn" onclick="openClientModal(-1)">＋ Nuevo cliente</button></div>`;
+  let html = `<div class="list-header"><button class="add-btn" onclick="openClientModal(-1)" style="${isSharedView ? 'display:none' : ''}">＋ Nuevo cliente</button>${isSharedView ? `<button class="add-btn" style="padding:8px 16px" onclick="exportClientsToExcel()">📊 Descargar como CSV</button>` : ''}</div>`;
   if (potentialClients.length === 0) {
     html += `<div class="empty"><div class="empty-icon">💬</div>Sin clientes potenciales aún</div>`;
   } else {
     html += '<div style="display:grid;gap:10px">';
     potentialClients.forEach((pc, idx) => {
       const sc = statusColors[pc.status] || statusColors.consulta;
-      html += `<div class="post-card" style="cursor:pointer"><div class="post-thumb" style="background:${sc.bg};color:${sc.color};font-size:24px">${sc.label.split(' ')[0]}</div><div class="post-info" style="flex:1"><div class="post-caption-text" style="cursor:pointer" onclick="openClientModal(${idx})">${pc.name}</div><div class="post-meta"><span style="font-weight:600;color:${sc.color}">${sc.label}</span><span style="color:var(--text-3)">|</span><span class="meta-date">${pc.date}</span></div><div class="post-note"><span class="note-icon">📞</span>${pc.phone}</div>${pc.notes ? `<div class="post-note"><span class="note-icon">📝</span>${pc.notes}</div>` : ''}</div><div style="display:flex;gap:6px;flex-direction:column"><button class="add-btn" style="padding:6px 10px;font-size:12px" onclick="openClientModal(${idx})">✏️ Editar</button><button class="add-btn" style="padding:6px 10px;font-size:12px;background:#C0392B" onclick="deleteClientPotential(${idx})">🗑️ Borrar</button></div></div>`;
+      const editButtons = isSharedView ? '' : `<div style="display:flex;gap:6px;flex-direction:column"><button class="add-btn" style="padding:6px 10px;font-size:12px" onclick="openClientModal(${idx})">✏️ Editar</button><button class="add-btn" style="padding:6px 10px;font-size:12px;background:#C0392B" onclick="deleteClientPotential(${idx})">🗑️ Borrar</button></div>`;
+      html += `<div class="post-card" style="cursor:${isSharedView ? 'default' : 'pointer'}"><div class="post-thumb" style="background:${sc.bg};color:${sc.color};font-size:24px">${sc.label.split(' ')[0]}</div><div class="post-info" style="flex:1"><div class="post-caption-text" style="cursor:${isSharedView ? 'default' : 'pointer'}" onclick="${isSharedView ? '' : `openClientModal(${idx})`}">${pc.name}</div><div class="post-meta"><span style="font-weight:600;color:${sc.color}">${sc.label}</span><span style="color:var(--text-3)">|</span><span class="meta-date">${pc.date}</span></div><div class="post-note"><span class="note-icon">📞</span>${pc.phone}</div>${pc.notes ? `<div class="post-note"><span class="note-icon">📝</span>${pc.notes}</div>` : ''}</div>${editButtons}</div>`;
     });
     html += '</div>';
   }
@@ -901,6 +911,7 @@ function openModal(idx, prefillDate) {
   document.getElementById('postInquiries').value = '';
   document.getElementById('postFollowers').value = '';
   document.getElementById('previewImgs').innerHTML = '';
+  uploadedFileNames = [];
   document.getElementById('adToggleRow').classList.remove('ad-active');
   selectedStatus = 'scheduled';
   
@@ -915,6 +926,7 @@ function openModal(idx, prefillDate) {
     document.getElementById('postReach').value = stats.reach || '';
     document.getElementById('postInquiries').value = stats.inquiries || '';
     document.getElementById('postFollowers').value = stats.followers || '';
+    uploadedFileNames = p.fileNames || [];
     p.networks.forEach(n => {
       document.querySelectorAll('.net-tag').forEach(t => {
         if (t.classList.contains(n)) t.classList.add('selected');
@@ -962,15 +974,43 @@ function toggleAd() {
   document.getElementById('adToggleRow').classList.toggle('ad-active', isAd);
 }
 
+let uploadedFileNames = [];
+
 function handleFileUpload(input) {
   const prev = document.getElementById('previewImgs');
   prev.innerHTML = '';
+  uploadedFileNames = [];
   Array.from(input.files).slice(0, 4).forEach(f => {
+    uploadedFileNames.push(f.name);
     const img = document.createElement('img');
     img.className = 'preview-img';
     img.src = URL.createObjectURL(f);
     prev.appendChild(img);
   });
+}
+
+function exportClientsToExcel() {
+  if (!potentialClients.length) {
+    alert('No hay clientes para exportar');
+    return;
+  }
+  const headers = ['Nombre', 'WhatsApp', 'Estado', 'Fecha', 'Notas'];
+  const rows = potentialClients.map(pc => [
+    pc.name,
+    pc.phone,
+    pc.status,
+    pc.date,
+    pc.notes || ''
+  ]);
+  const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.setAttribute('href', URL.createObjectURL(blob));
+  link.setAttribute('download', `clientes_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function savePost() {
@@ -986,7 +1026,7 @@ function savePost() {
   if (!networks.length) { alert('Seleccioná al menos una red social.'); return; }
   
   const emojis = ['📸','☕','🎉','💡','🌿','🍋','💻','✨','🎨','📅','🛍️','🔥'];
-  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)], stats: {reach, inquiries, followers}};
+  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)], stats: {reach, inquiries, followers}, fileNames: uploadedFileNames};
   if (editingIdx >= 0) posts[editingIdx] = post;
   else posts.push(post);
   saveAppState();
