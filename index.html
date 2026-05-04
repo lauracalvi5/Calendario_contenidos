@@ -1076,16 +1076,17 @@ async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
   const duration = parseInt(document.getElementById('shareDuration').value);
   
-  // Filtramos solo los publicados y mapeamos los campos correctos
-  const sharedPosts = posts.filter(p => p.status === 'published').map(p => ({
+  // Mapeamos el array completo de posts sin filtrar por status
+  const sharedPosts = posts.map(p => ({
     title: p.title || 'Sin título',
-    caption: p.caption,
+    caption: p.caption || '',
     date: p.date,
-    networks: p.networks,
-    emoji: p.emoji,
-    ad: p.ad,
-    stats: p.stats,
-    fileNames: p.fileNames
+    networks: p.networks || [],
+    emoji: p.emoji || '',
+    ad: p.ad || false,
+    stats: p.stats || {},
+    fileNames: p.fileNames || [],
+    status: p.status // Incluimos el estado por si quieres mostrarlo en la vista compartida
   }));
 
   const payload = {
@@ -1094,12 +1095,18 @@ async function generateShareCode() {
     exp: duration > 0 ? Date.now() + duration * 86400000 : null
   };
 
-  // Codificamos el objeto para que viaje en la URL
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
-  
-  document.getElementById('shareResultLink').value = shareLink;
-  document.getElementById('shareResultField').style.display = 'block';
+  try {
+    // Codificación robusta para evitar errores con caracteres especiales
+    const jsonStr = JSON.stringify(payload);
+    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+    
+    document.getElementById('shareResultLink').value = shareLink;
+    document.getElementById('shareResultField').style.display = 'block';
+  } catch (e) {
+    console.error("Error al generar el código:", e);
+    alert("Hubo un error al generar el enlace. Revisa la consola.");
+  }
 }
 
 // 2. Modificamos el Render para que muestre la imagen grande
