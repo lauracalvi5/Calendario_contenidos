@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
-  /* RESTAURADA LA ESTÉTICA ORIGINAL */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --bg: #F7F5F2; --surface: #FFFFFF; --surface-2: #F0EDE8; --border: #E5E0D8; --border-dark: #CEC8BE;
@@ -29,296 +28,1091 @@
   .logo { font-family: var(--font-logo); font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
   .logo span { color: var(--accent); }
   .divider { width: 1px; height: 20px; background: var(--border-dark); }
-  
-  /* SELECTOR DE CLIENTES[cite: 1] */
   .client-select { font-family: var(--font); font-size: 13px; font-weight: 500; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 8px 12px; background: var(--surface); color: var(--text); cursor: pointer; box-shadow: var(--shadow-sm); transition: all 0.15s; outline: none; min-width: 160px; display: inline-flex; align-items: center; gap: 8px; position: relative; }
+  .client-select:hover { border-color: var(--border-dark); }
+  .client-select.open { border-color: var(--accent); }
   .client-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-md); margin-top: 4px; box-shadow: var(--shadow-lg); z-index: 100; max-height: 200px; overflow-y: auto; }
   .client-dropdown.show { display: block; }
   .client-option { padding: 10px 12px; cursor: pointer; font-size: 13px; color: var(--text); transition: background 0.1s; border-bottom: 1px solid var(--border); }
+  .client-option:last-child { border-bottom: none; }
   .client-option:hover { background: var(--surface-2); }
-  .client-option.add-new { color: var(--accent); font-weight: 600; border-top: 1.5px solid var(--border); }
-
-  /* NAVEGACIÓN Y BOTONES[cite: 1] */
+  .client-option.selected { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .share-btn { font-family: var(--font); font-size: 12px; font-weight: 500; padding: 7px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-2); cursor: pointer; box-shadow: var(--shadow-sm); transition: all 0.15s; }
+  .share-btn:hover { border-color: var(--border-dark); color: var(--text); }
   .nav-wrap { display: flex; gap: 4px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 5px; margin-bottom: 20px; box-shadow: var(--shadow-sm); width: fit-content; }
   .nav-btn { font-family: var(--font); font-size: 13px; font-weight: 500; padding: 7px 18px; border: none; border-radius: var(--radius-md); background: transparent; color: var(--text-2); cursor: pointer; transition: all 0.18s; }
+  .nav-btn:hover { background: var(--surface-2); color: var(--text); }
   .nav-btn.active { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(91,79,255,.35); }
-  .share-btn { font-family: var(--font); font-size: 12px; font-weight: 500; padding: 7px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--surface); color: var(--text-2); cursor: pointer; box-shadow: var(--shadow-sm); transition: all 0.15s; }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .cal-nav { display: flex; align-items: center; gap: 10px; }
+  .cal-arrow { width: 32px; height: 32px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-2); cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); transition: all 0.15s; }
+  .cal-arrow:hover { border-color: var(--accent); color: var(--accent); }
+  .cal-month { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
   .add-btn { font-family: var(--font); font-size: 13px; font-weight: 600; padding: 8px 16px; border: none; border-radius: var(--radius-md); background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(91,79,255,.35); transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
-
-  /* GRID Y MODALES[cite: 1] */
+  .add-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(91,79,255,.4); }
+  .add-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background: var(--border); border: 1.5px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-md); }
+  .cal-day-header { background: var(--surface-2); padding: 10px 6px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; }
   .cal-day { background: var(--surface); padding: 8px; min-height: 96px; cursor: pointer; transition: background 0.12s; position: relative; }
-  .post-pill { font-size: 10px; font-weight: 500; padding: 3px 6px; border-radius: 5px; margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; border: 1px solid transparent; }
+  .cal-day:hover { background: #FDFCFF; }
+  .cal-day.other-month { background: var(--bg); opacity: 0.6; }
+  .cal-day.today { background: var(--accent-light); }
+  .day-num { font-size: 12px; font-weight: 500; color: var(--text-3); margin-bottom: 5px; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; }
+  .day-num.is-today { background: var(--accent); color: #fff; border-radius: 50%; font-weight: 700; }
+  .post-pill { font-size: 10px; font-weight: 500; padding: 3px 6px; border-radius: 5px; margin-bottom: 3px; cursor: pointer; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; border: 1px solid transparent; transition: opacity 0.12s; position: relative; }
+  .post-pill:hover { opacity: 0.85; }
+  .post-pill.ig { background: #FBEAF0; color: #72243E; border-color: #EDAFC9; }
+  .post-pill.fb { background: #E6F1FB; color: #0C447C; border-color: #9DC4EF; }
+  .post-pill.wa { background: #E1F5EE; color: #075E54; border-color: #7DD5BA; }
+  .post-pill.li { background: #E6F0FB; color: #0C3B82; border-color: #9DB8EF; }
+  .status-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .dot-published { background: var(--pub-color); }
+  .dot-scheduled { background: var(--sched-color); }
+  .dot-draft { background: var(--text-3); }
+  .ad-pill-badge { background: var(--ad-color); color: #fff; font-size: 8px; font-weight: 700; padding: 0 3px; border-radius: 3px; letter-spacing: 0.3px; margin-left: auto; flex-shrink: 0; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(20,18,16,0.5); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: var(--surface); border-radius: var(--radius-xl); border: 1.5px solid var(--border); width: 500px; max-width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px; animation: slideUp 0.22s ease; }
+  .modal-overlay.open { display: flex; animation: fadeIn 0.18s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: var(--surface); border-radius: var(--radius-xl); border: 1.5px solid var(--border); width: 500px; max-width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: slideUp 0.22s cubic-bezier(.22,1,.36,1); }
   @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .preview-img { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-md); border: 1.5px solid var(--border); margin-right: 8px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1.5px solid var(--border); }
+  .modal-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+  .modal-close { width: 30px; height: 30px; background: var(--surface-2); border: none; border-radius: 50%; font-size: 16px; cursor: pointer; color: var(--text-2); display: flex; align-items: center; justify-content: center; transition: all 0.15s; line-height: 1; }
+  .modal-close:hover { background: var(--border); color: var(--text); }
+  .modal-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.6px; }
+  .field-input, .field-textarea { font-family: var(--font); width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s; box-shadow: var(--shadow-sm); }
+  .field-input:disabled, .field-textarea:disabled { background: var(--surface-2); color: var(--text-2); cursor: not-allowed; }
+  .field-input:focus:not(:disabled), .field-textarea:focus:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,79,255,.1); }
+  .field-textarea { min-height: 88px; resize: vertical; }
+  .network-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .net-tag { font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: var(--radius-md); cursor: pointer; border: 1.5px solid var(--border); color: var(--text-2); background: var(--surface); transition: all 0.15s; box-shadow: var(--shadow-sm); }
+  .net-tag:hover { border-color: var(--border-dark); }
+  .net-tag.selected.ig { background: #FBEAF0; color: #72243E; border-color: #EDAFC9; }
+  .net-tag.selected.fb { background: #E6F1FB; color: #0C447C; border-color: #9DC4EF; }
+  .net-tag.selected.wa { background: #E1F5EE; color: #075E54; border-color: #7DD5BA; }
+  .net-tag.selected.li { background: #E6F0FB; color: #0C3B82; border-color: #9DB8EF; }
+  .status-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .status-opt { font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-md); cursor: pointer; border: 1.5px solid var(--border); color: var(--text-2); background: var(--surface); transition: all 0.15s; box-shadow: var(--shadow-sm); }
+  .status-opt:hover { border-color: var(--border-dark); }
+  .status-opt.sel-draft { background: var(--draft-bg); color: var(--draft-color); border-color: var(--draft-border); }
+  .status-opt.sel-scheduled { background: var(--sched-bg); color: var(--sched-color); border-color: var(--sched-border); }
+  .status-opt.sel-published { background: var(--pub-bg); color: var(--pub-color); border-color: var(--pub-border); }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; cursor: pointer; transition: border-color 0.15s; }
+  .toggle-row:hover { border-color: var(--border-dark); }
+  .toggle-row.ad-active { background: var(--ad-bg); border-color: var(--ad-border); }
+  .toggle-label { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-label-main { font-size: 13px; font-weight: 600; color: var(--text); }
+  .toggle-label-sub { font-size: 11px; color: var(--text-2); }
+  .toggle-switch { width: 40px; height: 22px; background: var(--border-dark); border-radius: 11px; position: relative; transition: background 0.2s; flex-shrink: 0; }
+  .toggle-switch::after { content: ''; position: absolute; width: 16px; height: 16px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .toggle-row.ad-active .toggle-switch { background: var(--ad-color); }
+  .toggle-row.ad-active .toggle-switch::after { transform: translateX(18px); }
+  .upload-area { border: 1.5px dashed var(--border-dark); border-radius: var(--radius-md); padding: 18px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--bg); }
+  .upload-area:hover { border-color: var(--accent); background: var(--accent-light); }
+  .upload-label { font-size: 13px; color: var(--text-2); }
+  .upload-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+  .preview-imgs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .preview-img { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-md); border: 1.5px solid var(--border); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 24px 20px; border-top: 1.5px solid var(--border); }
+  .btn-cancel { font-family: var(--font); font-size: 13px; font-weight: 500; padding: 8px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--surface); cursor: pointer; color: var(--text-2); transition: all 0.15s; box-shadow: var(--shadow-sm); }
+  .btn-cancel:hover { border-color: var(--border-dark); color: var(--text); }
+  .btn-save { font-family: var(--font); font-size: 13px; font-weight: 600; padding: 8px 20px; border: none; border-radius: var(--radius-md); background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(91,79,255,.35); transition: all 0.18s; }
+  .btn-save:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .list-header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-sel { font-family: var(--font); font-size: 12px; font-weight: 500; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 7px 10px; background: var(--surface); color: var(--text); cursor: pointer; box-shadow: var(--shadow-sm); outline: none; transition: border-color 0.15s; }
+  .filter-sel:focus { border-color: var(--accent); }
+  .post-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 14px; align-items: flex-start; cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow-sm); }
+  .post-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,79,255,.07); }
+  .post-card.is-ad { border-left: 3px solid var(--ad-color); }
+  .post-thumb { width: 52px; height: 52px; border-radius: var(--radius-md); border: 1.5px solid var(--border); background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .post-info { flex: 1; min-width: 0; }
+  .post-caption-text { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .post-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 11px; color: var(--text-2); }
+  .meta-date { font-weight: 500; }
+  .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.2px; }
+  .badge-pub { background: var(--pub-bg); color: var(--pub-color); }
+  .badge-sched { background: var(--sched-bg); color: var(--sched-color); }
+  .badge-draft { background: var(--draft-bg); color: var(--draft-color); }
+  .badge-ad { background: var(--ad-bg); color: var(--ad-color); border: 1px solid var(--ad-border); font-weight: 700; }
+  .net-chips { display: flex; gap: 4px; }
+  .net-chip { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .post-note { font-size: 11px; color: var(--text-3); margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+  .note-icon { opacity: 0.6; }
+  .stats-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 16px; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
+  .metric-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow-sm); transition: transform 0.15s; }
+  .metric-card:hover { transform: translateY(-2px); }
+  .metric-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .metric-val { font-size: 26px; font-weight: 700; letter-spacing: -1px; color: var(--text); }
+  .metric-change { font-size: 11px; font-weight: 500; margin-top: 4px; }
+  .change-up { color: var(--pub-color); }
+  .change-down { color: #C0392B; }
+  .change-neutral { color: var(--text-3); }
+  .section-label { font-size: 12px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; margin-top: 4px; }
+  .stat-post-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1.5px solid var(--border); cursor: pointer; transition: opacity 0.12s; }
+  .stat-post-row:last-child { border-bottom: none; }
+  .stat-post-row:hover { opacity: 0.75; }
+  .stat-thumb { width: 44px; height: 44px; border-radius: var(--radius-md); background: var(--surface-2); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .stat-info { flex: 1; min-width: 0; }
+  .stat-cap { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat-sub { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+  .bar-wrap { height: 4px; background: var(--surface-2); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), #8B7FFF); }
+  .stat-nums { display: flex; gap: 16px; }
+  .stat-num-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .stat-num-label { font-size: 10px; color: var(--text-3); font-weight: 500; }
+  .stat-num-val { font-size: 14px; font-weight: 700; color: var(--text); }
+  .upload-stat-area { border: 1.5px dashed var(--border-dark); border-radius: var(--radius-lg); padding: 24px; text-align: center; cursor: pointer; background: var(--surface); margin-top: 16px; transition: all 0.15s; box-shadow: var(--shadow-sm); }
+  .upload-stat-area:hover { border-color: var(--accent); background: var(--accent-light); }
+  .upload-stat-label { font-size: 13px; color: var(--text-2); font-weight: 500; margin-top: 6px; }
+  .upload-stat-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+  .empty { text-align: center; padding: 40px 20px; color: var(--text-2); font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
 </style>
 </head>
 <body>
-
 <div class="shell">
   <div class="header">
     <div class="header-left">
       <div class="logo">Content<span>Cal</span></div>
       <div class="divider"></div>
       <div style="display:flex;gap:6px;align-items:center;position:relative">
-        <!-- SELECTOR DE CLIENTE (CM)[cite: 1] -->
         <div class="client-select" id="clientSel" onclick="toggleClientDropdown()">
-          <span id="activeClientName">Café Morado</span>
-          <span style="font-size:12px">▼</span>
+          <span id="clientSelText" style="flex:1">Café Morado</span>
+          <span style="font-size:12px;color:var(--text-2);flex-shrink:0">▼</span>
           <div class="client-dropdown" id="clientDropdown"></div>
         </div>
-        <button class="share-btn" style="padding:7px 10px" onclick="deleteCMClient()">✕</button>
+        <button class="share-btn" style="padding:7px 10px" onclick="showDeleteClientDialog()" title="Borrar cliente" id="deleteClientBtn">✕</button>
       </div>
     </div>
-    <button class="share-btn" id="shareBtn" onclick="generateShareLink()">↗ Compartir vista</button>
+    <button class="share-btn" id="shareBtn">↗ Compartir vista</button>
   </div>
 
   <div class="nav-wrap">
     <button class="nav-btn active" onclick="switchView('calendar', this)">Calendario</button>
-    <button class="nav-btn" onclick="switchView('prospects', this)">💬 Prospectos</button>
-    <button class="nav-btn" onclick="switchView('stats', this)">📊 Estadísticas</button>
+    <button class="nav-btn" onclick="switchView('list', this)">Publicaciones</button>
+    <button class="nav-btn" onclick="switchView('stats', this)">Estadísticas</button>
+    <button class="nav-btn" onclick="switchView('clients', this)">💬 Clientes</button>
   </div>
 
   <div id="mainContent"></div>
 </div>
 
-<!-- MODAL PUBLICACIÓN[cite: 1] -->
-<div class="modal-overlay" id="modalPost">
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
   <div class="modal">
-    <h3 style="margin-bottom:20px" id="modalTitle">Nueva publicación</h3>
-    <div style="display:flex; flex-direction:column; gap:15px">
-        <input type="text" id="postTitle" class="field-input" placeholder="Título de la publicación" style="width:100%; padding:10px; border-radius:8px; border:1.5px solid var(--border)">
-        <textarea id="postCaption" rows="4" placeholder="Contenido..." style="width:100%; padding:10px; border-radius:8px; border:1.5px solid var(--border); font-family:inherit"></textarea>
-        
-        <div>
-            <span style="font-size:12px; font-weight:600; color:var(--text-2)">ARCHIVOS</span>
-            <input type="file" id="fileInput" multiple style="margin-top:5px" onchange="handleFileUpload(this)">
-            <div id="previewImgs" style="display:flex; flex-wrap:wrap; margin-top:10px"></div>
-        </div>
-
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px">
-            <input type="number" id="statReach" placeholder="Alcance" style="padding:10px; border-radius:8px; border:1.5px solid var(--border)">
-            <input type="number" id="statInquiries" placeholder="Consultas" style="padding:10px; border-radius:8px; border:1.5px solid var(--border)">
-        </div>
+    <div class="modal-header"><span class="modal-title" id="modalTitle">Nueva publicación</span><button class="modal-close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><div class="field-label">Fecha y hora</div><input type="datetime-local" class="field-input" id="postDate"></div>
+      <div class="field"><div class="field-label">Título</div><input type="text" class="field-input" id="postTitle" placeholder="Ej: Lanzamiento de campaña"></div>
+      <div class="field"><div class="field-label">Redes sociales</div><div class="network-picker"><span class="net-tag ig" onclick="toggleNet(this,'ig')">Instagram</span><span class="net-tag fb" onclick="toggleNet(this,'fb')">Facebook</span><span class="net-tag wa" onclick="toggleNet(this,'wa')">WhatsApp</span><span class="net-tag li" onclick="toggleNet(this,'li')">LinkedIn</span></div></div>
+      <div class="field"><div class="field-label">Caption / Texto</div><textarea class="field-textarea" id="postCaption" placeholder="Escribí el texto de la publicación..."></textarea></div>
+      <div class="field"><div class="field-label">Estadísticas de la publicación</div><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px"><input type="number" min="0" class="field-input" id="postReach" placeholder="Alcance"><input type="number" min="0" class="field-input" id="postInquiries" placeholder="Consultas"><input type="number" min="0" class="field-input" id="postFollowers" placeholder="Seguidores nuevos"></div></div>
+      <div class="field"><div class="field-label">Imagen o video</div><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="handleFileUpload(this)"><div style="font-size:22px;margin-bottom:4px">🖼️</div><div class="upload-label">Hacé clic para subir archivos</div><div class="upload-sub">JPG, PNG, MP4 — hasta 100 MB</div></div><div class="preview-imgs" id="previewImgs"></div></div>
+      <div class="field"><div class="field-label">Estado</div><div class="status-picker"><span class="status-opt" data-st="draft" onclick="selectStatus(this,'draft')">Borrador</span><span class="status-opt" data-st="scheduled" onclick="selectStatus(this,'scheduled')">Programado</span><span class="status-opt" data-st="published" onclick="selectStatus(this,'published')">Publicado</span></div></div>
+      <div class="field"><div class="field-label">Tipo de publicación</div><div class="toggle-row" id="adToggleRow" onclick="toggleAd()"><div class="toggle-label"><div class="toggle-label-main">¿Es publicidad paga? 💰</div><div class="toggle-label-sub">Activá si es un aviso pago, boosting o campaña</div></div><div class="toggle-switch" id="adToggleSwitch"></div></div></div>
+      <div class="field"><div class="field-label">Nota interna</div><input type="text" class="field-input" id="postNote" placeholder="Ej: confirmar hashtags con cliente..."></div>
     </div>
-
-    <div style="display:flex; justify-content: space-between; margin-top:20px">
-      <button class="add-btn" style="background:#C0392B" onclick="deletePost()">Eliminar</button>
-      <div style="display:flex; gap:10px">
-        <button class="share-btn" onclick="closePostModal()">Cancelar</button>
-        <button class="add-btn" id="savePostBtn" onclick="savePost()">Guardar</button>
-      </div>
-    </div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button id="deletePostBtn" class="btn-save" style="background:#C0392B;display:none;margin-right:8px" onclick="deletePost()">🗑️ Eliminar publicación</button><button class="btn-save" id="savePostBtn" onclick="savePost()">Guardar publicación</button></div>
   </div>
 </div>
 
-<!-- MODAL AGREGAR CLIENTE CM -->
-<div class="modal-overlay" id="modalAddClient">
-  <div class="modal" style="width:380px">
-    <h3 style="margin-bottom:15px">Nuevo Cliente de CM</h3>
-    <input type="text" id="newCMName" placeholder="Nombre de la marca" style="width:100%; padding:10px; border-radius:8px; border:1.5px solid var(--border)">
-    <div style="display:flex; gap:10px; margin-top:20px; justify-content: flex-end">
-        <button class="share-btn" onclick="closeAddClientModal()">Cancelar</button>
-        <button class="add-btn" onclick="saveNewCMClient()">Agregar</button>
+<div class="modal-overlay" id="shareModalOverlay" onclick="closeShareModal(event)">
+  <div class="modal" style="width:450px">
+    <div class="modal-header"><span class="modal-title">Generar link para compartir</span><button class="modal-close" onclick="closeShareModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><div class="field-label">Cliente</div><div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-md);color:var(--text);font-weight:500;font-size:14px;" id="shareClientName">Café Morado</div></div>
+      <div class="field"><div class="field-label">Duración del link</div><select id="shareDuration" class="field-input" style="padding:8px 12px"><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="365">1 año</option><option value="0">Sin expiración</option></select></div>
+      <div class="field" id="shareResultField" style="display:none"><div class="field-label">Tu link compartible</div><div style="display:flex;gap:8px"><input type="text" id="shareResultLink" class="field-input" readonly><button class="add-btn" style="padding:8px 14px;margin:0" onclick="copyShareLink()">Copiar</button></div></div>
     </div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeShareModal()">Cancelar</button><button class="btn-save" onclick="generateShareCode()">Generar link</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="clientModalOverlay" onclick="closeClientModal(event)">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title" id="clientModalTitle">Nuevo cliente potencial</span><button class="modal-close" onclick="closeClientModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><div class="field-label">Nombre</div><input type="text" class="field-input" id="clientName" placeholder="Ej: Juan García"></div>
+      <div class="field"><div class="field-label">WhatsApp</div><input type="tel" class="field-input" id="clientPhone" placeholder="+54 9 11 2345-6789"></div>
+      <div class="field"><div class="field-label">Estado</div><select class="field-input" id="clientStatus"><option value="consulta">📋 Consulta inicial</option><option value="reunión">📅 Reunión agendada</option><option value="negociando">💬 Negociando</option><option value="cerrado">✅ Cerrado (Cliente)</option><option value="rechazado">❌ Rechazado</option></select></div>
+      <div class="field"><div class="field-label">Notas</div><textarea class="field-textarea" id="clientNotes" placeholder="Información adicional..."></textarea></div>
+    </div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeClientModal()">Cancelar</button><button class="btn-save" onclick="saveClient()">Guardar</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteClientModalOverlay" onclick="closeDeleteClientModal(event)">
+  <div class="modal" style="width:380px">
+    <div class="modal-header"><span class="modal-title">Borrar cliente</span><button class="modal-close" onclick="closeDeleteClientModal()">×</button></div>
+    <div class="modal-body"><div class="field"><div class="field-label">Selecciona el cliente a borrar</div><select class="field-input" id="deleteClientSel"></select></div></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeDeleteClientModal()">Cancelar</button><button class="btn-save" style="background:#C0392B" onclick="deleteClient()">Borrar</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addClientModalOverlay" onclick="closeAddClientModal(event)">
+  <div class="modal" style="width:420px">
+    <div class="modal-header"><span class="modal-title">Agregar cliente</span><button class="modal-close" onclick="closeAddClientModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><div class="field-label">Nombre</div><input type="text" id="newClientName" class="field-input" placeholder="Ej: Café Morado"></div>
+      <div class="field"><div class="field-label">Notas (opcional)</div><textarea id="newClientNotes" class="field-textarea" placeholder="Notas sobre el cliente..."></textarea></div>
+    </div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeAddClientModal()">Cancelar</button><button class="btn-save" onclick="saveNewClient()">Guardar</button></div>
   </div>
 </div>
 
 <script>
-let state = JSON.parse(localStorage.getItem('contentcal_v3')) || {
-    clients: ['Café Morado'],
-    activeClient: 'Café Morado',
-    posts: {},
-    prospects: []
+// ============= CONSTANTS & DATA =============
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const NET_LABELS = {ig:'IG', fb:'FB', wa:'WA', li:'LI'};
+const NET_COLORS = {
+  ig: {bg:'#FBEAF0', color:'#72243E'},
+  fb: {bg:'#E6F1FB', color:'#0C447C'},
+  wa: {bg:'#E1F5EE', color:'#075E54'},
+  li: {bg:'#E6F0FB', color:'#0C3B82'}
 };
 
-let isSharedView = false;
-let uploadedFiles = [];
+// ============= GLOBAL STATE =============
+const APP_STATE_KEY = 'contentcal_app_state_v1';
+let currentView = 'calendar';
+let currentYear = 2026;
+let currentMonth = 4;
+let statsFilterYear = currentYear;
+let statsFilterMonth = currentMonth;
+let statsViewMode = 'monthly';
 let editingIdx = -1;
+let selectedStatus = 'scheduled';
+let isAd = false;
+let isSharedView = false;
+let editingClientIdx = -1;
+let sharedCode = null;
+let sharedCodes = {};
 
-function init() {
-    const params = new URLSearchParams(window.location.search);
-    if(params.has('view')) {
-        isSharedView = true;
-        state.activeClient = params.get('client');
-        applySharedRestrictions();
+const defaultClients = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
+const defaultPotentialClients = [];
+const defaultPosts = [];
+
+const seededPosts = [
+  {date:'2026-05-06 10:00', networks:['ig','fb'], caption:'Empezá la semana con nuestro café especial de temporada. El aroma que necesitás para arrancar bien el lunes. #CaféMorado', status:'scheduled', note:'', emoji:'☕', ad:false},
+  {date:'2026-05-09 18:00', networks:['ig'], caption:'Detrás de cada taza, hay una historia. Visitanos y contanos la tuya. #Barista #Cafetería', status:'scheduled', note:'Usar foto de barista nueva', emoji:'📸', ad:false},
+  {date:'2026-05-12 12:00', networks:['fb','li'], caption:'Brindamos espacios de trabajo tranquilos con WiFi y café de especialidad. Ideal para reuniones creativas.', status:'draft', note:'Confirmar con cliente', emoji:'💻', ad:true},
+  {date:'2026-05-15 09:00', networks:['ig'], caption:'¿Sabías que el café de especialidad se cultiva a más de 1500m de altura? Así llegamos a vos.', status:'scheduled', note:'', emoji:'🌿', ad:false},
+  {date:'2026-05-20 17:00', networks:['ig'], caption:'Nuevo postre de temporada: torta de limón con crema de vainilla. ¡Te esperamos!', status:'draft', note:'Pedir foto del postre', emoji:'🍋', ad:false},
+  {date:'2026-05-02 11:00', networks:['ig','fb'], caption:'Gracias por ser parte de nuestra comunidad. 1000 seguidores y contando.', status:'published', note:'', emoji:'🎉', ad:true, stats:{likes:124, comments:31, reach:980, saves:45}},
+  {date:'2026-05-01 10:00', networks:['fb'], caption:'Feliz primer día de mayo. Les recordamos nuestros horarios especiales del feriado.', status:'published', note:'', emoji:'📅', ad:false, stats:{likes:67, comments:8, reach:520, saves:12}}
+];
+
+function isSeedPost(post) {
+  return seededPosts.some(seed =>
+    post.date === seed.date &&
+    post.caption === seed.caption &&
+    post.status === seed.status &&
+    post.note === seed.note &&
+    post.emoji === seed.emoji &&
+    post.ad === seed.ad &&
+    JSON.stringify(post.networks || []) === JSON.stringify(seed.networks || [])
+  );
+}
+
+function cloneData(data) {
+  return typeof structuredClone === 'function' ? structuredClone(data) : JSON.parse(JSON.stringify(data));
+}
+
+function loadAppState() {
+  const stored = localStorage.getItem(APP_STATE_KEY);
+  if (!stored) {
+    return {
+      clients: defaultClients.slice(),
+      potentialClients: cloneData(defaultPotentialClients),
+      posts: cloneData(defaultPosts)
+    };
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    const storedPosts = Array.isArray(parsed.posts) ? parsed.posts.filter(post => !isSeedPost(post)) : [];
+    return {
+      clients: Array.isArray(parsed.clients) ? parsed.clients : defaultClients.slice(),
+      potentialClients: Array.isArray(parsed.potentialClients) ? parsed.potentialClients : cloneData(defaultPotentialClients),
+      posts: storedPosts
+    };
+  } catch {
+    return {
+      clients: defaultClients.slice(),
+      potentialClients: cloneData(defaultPotentialClients),
+      posts: []
+    };
+  }
+}
+
+function saveAppState() {
+  localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts }));
+}
+
+function normalizeStatValue(value) {
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function getPostStats(post) {
+  const stats = post.stats || {};
+  return {
+    reach: normalizeStatValue(stats.reach ?? stats.alcance),
+    inquiries: normalizeStatValue(stats.inquiries ?? stats.consultas),
+    followers: normalizeStatValue(stats.followers ?? stats.seguidores ?? stats.newFollowers)
+  };
+}
+
+function summarizePosts(list) {
+  return list.reduce((accumulator, post) => {
+    const stats = getPostStats(post);
+    accumulator.reach += stats.reach;
+    accumulator.inquiries += stats.inquiries;
+    accumulator.followers += stats.followers;
+    accumulator.count += 1;
+    return accumulator;
+  }, { reach: 0, inquiries: 0, followers: 0, count: 0 });
+}
+
+function formatMetric(value) {
+  return Number(value || 0).toLocaleString('es-AR');
+}
+
+function getMonthPosts(year, month) {
+  const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+  return posts.filter(post => post.date.startsWith(monthKey));
+}
+
+function getYearPosts(year) {
+  const yearKey = `${year}-`;
+  return posts.filter(post => post.date.startsWith(yearKey));
+}
+
+function getAvailableStatsYears() {
+  const years = new Set(
+    posts
+      .map(post => Number.parseInt(String(post.date).slice(0, 4), 10))
+      .filter(year => Number.isFinite(year))
+  );
+  years.add(currentYear);
+  return [...years].sort((a, b) => b - a);
+}
+
+function onStatsFilterChange() {
+  const modeEl = document.getElementById('statsModeSel');
+  const yearEl = document.getElementById('statsYearSel');
+  const monthEl = document.getElementById('statsMonthSel');
+  if (!modeEl || !yearEl) return;
+
+  statsViewMode = modeEl.value;
+  statsFilterYear = Number.parseInt(yearEl.value, 10);
+  if (monthEl) statsFilterMonth = Number.parseInt(monthEl.value, 10);
+
+  if (currentView === 'stats') renderStats();
+}
+
+const initialState = loadAppState();
+let clients = initialState.clients;
+let potentialClients = initialState.potentialClients;
+let posts = initialState.posts;
+
+// ============= SHARED CODE FUNCTIONS =============
+function loadSharedCodes() {
+  const stored = localStorage.getItem('contentcal_shared_codes');
+  if (stored) sharedCodes = JSON.parse(stored);
+}
+
+function saveSharedCodes() {
+  localStorage.setItem('contentcal_shared_codes', JSON.stringify(sharedCodes));
+}
+
+function checkSharedAccess() {
+  const params = new URLSearchParams(window.location.search);
+  sharedCode = params.get('code');
+  if (sharedCode && sharedCodes[sharedCode]) {
+    const codeData = sharedCodes[sharedCode];
+    if (codeData.expiresAt && new Date() > new Date(codeData.expiresAt)) {
+      alert('Este link de compartición ha expirado.');
+      window.location.href = window.location.pathname;
+      return;
     }
-    renderClientDropdown();
-    renderView();
+    isSharedView = true;
+    document.getElementById('clientSelText').textContent = codeData.clientName;
+    document.getElementById('clientSel').style.pointerEvents = 'none';
+    document.getElementById('clientSel').style.opacity = '0.6';
+    document.getElementById('shareBtn').style.display = 'none';
+    
+    const deleteClientBtn = document.getElementById('deleteClientBtn');
+    if (deleteClientBtn) deleteClientBtn.style.display = 'none';
+    
+    const info = document.createElement('div');
+    info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
+    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas. Puedes ver archivos, clientes y estadísticas. No se pueden realizar cambios.';
+    document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
+  }
 }
 
-function saveState() {
-    localStorage.setItem('contentcal_v3', JSON.stringify(state));
-}
-
-// GESTIÓN DE CLIENTES CM (ELIMINAR Y AGREGAR)[cite: 1]
-function renderClientDropdown() {
-    const dd = document.getElementById('clientDropdown');
-    document.getElementById('activeClientName').innerText = state.activeClient;
-    
-    let html = state.clients.map(c => `
-        <div class="client-option" onclick="selectClient('${c}')">${c}</div>
-    `).join('');
-    
-    html += `<div class="client-option add-new" onclick="openAddClientModal()">+ Agregar Cliente CM</div>`;
-    dd.innerHTML = html;
+// ============= CLIENT DROPDOWN =============
+function updateClientSelect() {
+  if (isSharedView) return;
+  const text = document.getElementById('clientSelText');
+  const dropdown = document.getElementById('clientDropdown');
+  text.textContent = clients[0] || 'Sin cliente';
+  dropdown.innerHTML = clients.map((c, idx) => 
+    `<div class="client-option${idx === 0 ? ' selected' : ''}" onclick="selectClient('${c}')">${c}</div>`
+  ).join('') + `<div class="client-option add-client" onclick="addClientPrompt()">＋ Agregar cliente</div>`;
 }
 
 function selectClient(name) {
-    state.activeClient = name;
-    saveState();
-    renderClientDropdown();
-    renderView();
-}
-
-function openAddClientModal() { document.getElementById('modalAddClient').classList.add('open'); }
-function closeAddClientModal() { document.getElementById('modalAddClient').classList.remove('open'); }
-
-function saveNewCMClient() {
-    const name = document.getElementById('newCMName').value.trim();
-    if(!name) return;
-    state.clients.push(name);
-    state.activeClient = name;
-    state.posts[name] = [];
-    saveState();
-    closeAddClientModal();
-    renderClientDropdown();
-    renderView();
-}
-
-function deleteCMClient() {
-    if(state.clients.length <= 1) return alert("Debes tener al menos un cliente.");
-    if(!confirm(`¿Borrar DEFINITIVAMENTE a ${state.activeClient}?`)) return;
-    
-    state.clients = state.clients.filter(c => c !== state.activeClient);
-    delete state.posts[state.activeClient];
-    state.activeClient = state.clients[0];
-    saveState();
-    renderClientDropdown();
-    renderView();
+  document.getElementById('clientSelText').textContent = name;
+  document.getElementById('clientSel').classList.remove('open');
+  document.getElementById('clientDropdown').classList.remove('show');
 }
 
 function toggleClientDropdown() {
-    if(!isSharedView) document.getElementById('clientDropdown').classList.toggle('show');
+  if (isSharedView) return;
+  event.stopPropagation();
+  const sel = document.getElementById('clientSel');
+  const dd = document.getElementById('clientDropdown');
+  sel.classList.toggle('open');
+  dd.classList.toggle('show');
 }
 
-// GESTIÓN DE ARCHIVOS Y PUBLICACIONES[cite: 1]
-function handleFileUpload(input) {
-    Array.from(input.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            uploadedFiles.push({ src: e.target.result, type: file.type });
-            renderFilePreviews();
-        };
-        reader.readAsDataURL(file);
+document.addEventListener('click', () => {
+  const dd = document.getElementById('clientDropdown');
+  const sel = document.getElementById('clientSel');
+  if (dd?.classList.contains('show')) {
+    dd.classList.remove('show');
+    sel.classList.remove('open');
+  }
+});
+
+function showDeleteClientDialog() {
+  const sel = document.getElementById('deleteClientSel');
+  sel.innerHTML = clients.map(c => `<option value="${c}">${c}</option>`).join('');
+  document.getElementById('deleteClientModalOverlay').classList.add('open');
+}
+
+function closeDeleteClientModal(e) {
+  if (e && e.target !== document.getElementById('deleteClientModalOverlay')) return;
+  document.getElementById('deleteClientModalOverlay').classList.remove('open');
+}
+
+function deleteClient() {
+  const toDelete = document.getElementById('deleteClientSel').value;
+  const idx = clients.indexOf(toDelete);
+  if (idx > -1) {
+    clients.splice(idx, 1);
+    updateClientSelect();
+    saveAppState();
+    closeDeleteClientModal();
+  }
+}
+
+function addClientPrompt() {
+  document.getElementById('newClientName').value = '';
+  document.getElementById('newClientNotes').value = '';
+  document.getElementById('addClientModalOverlay').classList.add('open');
+}
+
+function closeAddClientModal(e) {
+  if (e && e.target !== document.getElementById('addClientModalOverlay')) return;
+  document.getElementById('addClientModalOverlay').classList.remove('open');
+}
+
+function saveNewClient() {
+  const name = document.getElementById('newClientName').value.trim();
+  const notes = document.getElementById('newClientNotes').value.trim();
+  if (!name) { alert('El nombre es requerido'); return; }
+  clients.push(name);
+  updateClientSelect();
+  selectClient(name);
+  saveAppState();
+  closeAddClientModal();
+}
+
+function openClientModal(idx) {
+  if (isSharedView) return;
+  editingClientIdx = idx;
+  if (idx >= 0) {
+    const pc = potentialClients[idx];
+    document.getElementById('clientModalTitle').textContent = 'Editar cliente';
+    document.getElementById('clientName').value = pc.name;
+    document.getElementById('clientPhone').value = pc.phone;
+    document.getElementById('clientStatus').value = pc.status;
+    document.getElementById('clientNotes').value = pc.notes;
+  } else {
+    document.getElementById('clientModalTitle').textContent = 'Nuevo cliente potencial';
+    document.getElementById('clientName').value = '';
+    document.getElementById('clientPhone').value = '';
+    document.getElementById('clientStatus').value = 'consulta';
+    document.getElementById('clientNotes').value = '';
+  }
+  document.getElementById('clientModalOverlay').classList.add('open');
+}
+
+function closeClientModal(e) {
+  if (e && e.target !== document.getElementById('clientModalOverlay')) return;
+  document.getElementById('clientModalOverlay').classList.remove('open');
+}
+
+function saveClient() {
+  const name = document.getElementById('clientName').value.trim();
+  const phone = document.getElementById('clientPhone').value.trim();
+  const status = document.getElementById('clientStatus').value;
+  const notes = document.getElementById('clientNotes').value.trim();
+  if (!name) { alert('El nombre es requerido'); return; }
+  const client = {name, phone, status, notes, date: new Date().toISOString().split('T')[0]};
+  if (editingClientIdx >= 0) {
+    client.id = potentialClients[editingClientIdx].id;
+    potentialClients[editingClientIdx] = client;
+  } else {
+    client.id = Math.max(...potentialClients.map(p => p.id || 0), 0) + 1;
+    potentialClients.push(client);
+  }
+  saveAppState();
+  closeClientModal();
+  renderView();
+}
+
+function deleteClientPotential(idx) {
+  if (confirm('¿Borrar este cliente potencial?')) {
+    potentialClients.splice(idx, 1);
+    saveAppState();
+    renderView();
+  }
+}
+
+function deletePost() {
+  if (editingIdx < 0 || isSharedView) return;
+  if (!confirm('¿Borrar esta publicación? Esta acción no se puede deshacer.')) return;
+  posts.splice(editingIdx, 1);
+  editingIdx = -1;
+  saveAppState();
+  closeModal();
+  renderView();
+}
+
+function switchView(view, btn) {
+  currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderView();
+}
+
+function renderView() {
+  if (currentView === 'calendar') renderCalendar();
+  else if (currentView === 'list') renderList();
+  else if (currentView === 'stats') renderStats();
+  else if (currentView === 'clients') renderClients();
+}
+
+// ============= CALENDAR RENDERING =============
+function renderCalendar() {
+  const mc = document.getElementById('mainContent');
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const prevDays = new Date(currentYear, currentMonth, 0).getDate();
+  const today = new Date();
+  
+  let html = `<div class="cal-header"><div class="cal-nav"><button class="cal-arrow" onclick="prevMonth()">‹</button><span class="cal-month">${MONTHS[currentMonth]} ${currentYear}</span><button class="cal-arrow" onclick="nextMonth()">›</button></div>${isSharedView ? '' : '<button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button>'}</div><div class="cal-grid">`;
+  
+  DAYS.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
+  
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div class="cal-day other-month"><div class="day-num">${prevDays - firstDay + i + 1}</div></div>`;
+  }
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
+    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    let dayPosts = posts.filter(p => p.date.startsWith(dateStr));
+    if (isSharedView) { dayPosts = dayPosts.filter(p => p.status === 'published'); }
+    
+    html += `<div class="cal-day${isToday ? ' today' : ''}" onclick="openModal(-1,'${dateStr}')"><div class="day-num${isToday ? ' is-today' : ''}">${day}</div>`;
+    dayPosts.slice(0, 3).forEach(p => {
+      const pi = posts.indexOf(p);
+      const net = p.networks[0] || 'ig';
+      const dotCls = p.status === 'published' ? 'dot-published' : p.status === 'scheduled' ? 'dot-scheduled' : 'dot-draft';
+      const pillTitle = (p.title || 'Sin título').trim().slice(0, 32);
+      html += `<div class="post-pill ${net}" onclick="event.stopPropagation();openModal(${pi})"><span class="status-dot ${dotCls}"></span><span style="overflow:hidden;text-overflow:ellipsis;">${pillTitle}</span>${p.ad ? '<span class="ad-pill-badge">AD</span>' : ''}</div>`;
     });
+    if (dayPosts.length > 3) html += `<div style="font-size:10px;color:var(--text-3);padding:1px 2px">+${dayPosts.length - 3} más</div>`;
+    html += '</div>';
+  }
+  
+  const total = firstDay + daysInMonth;
+  const trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let i = 1; i <= trailing; i++) {
+    html += `<div class="cal-day other-month"><div class="day-num">${i}</div></div>`;
+  }
+  html += '</div>';
+  mc.innerHTML = html;
 }
 
-function renderFilePreviews() {
-    const container = document.getElementById('previewImgs');
-    container.innerHTML = uploadedFiles.map(f => `
-        <img src="${f.src}" class="preview-img">
-    `).join('');
+function prevMonth() {
+  if (currentMonth === 0) { currentMonth = 11; currentYear--; } else currentMonth--;
+  renderCalendar();
 }
 
-function openPostModal(idx = -1) {
-    editingIdx = idx;
-    uploadedFiles = [];
-    document.getElementById('previewImgs').innerHTML = '';
-    
-    const clientPosts = state.posts[state.activeClient] || [];
-    
-    if(idx >= 0) {
-        const p = clientPosts[idx];
-        document.getElementById('postTitle').value = p.title || '';
-        document.getElementById('postCaption').value = p.caption || '';
-        document.getElementById('statReach').value = p.reach || '';
-        document.getElementById('statInquiries').value = p.inquiries || '';
-        uploadedFiles = p.files || [];
-        renderFilePreviews();
+function nextMonth() {
+  if (currentMonth === 11) { currentMonth = 0; currentYear++; } else currentMonth++;
+  renderCalendar();
+}
+
+// ============= LIST RENDERING =============
+function renderList() {
+  const mc = document.getElementById('mainContent');
+  const visiblePosts = [...posts]
+    .filter(p => !isSharedView || p.status === 'published')
+    .sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
+
+  let html = `<div class="list-header">${isSharedView ? '' : '<button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button>'}</div>`;
+
+  if (!visiblePosts.length) {
+    html += '<div class="empty"><div class="empty-icon">📋</div>Sin publicaciones todavía</div>';
+    mc.innerHTML = html;
+    return;
+  }
+
+  html += '<div style="display:grid;gap:10px">';
+  visiblePosts.forEach(p => {
+    const pi = posts.indexOf(p);
+    const net = p.networks[0] || 'ig';
+    const statusBadge = p.status === 'published' ? 'badge-pub' : p.status === 'scheduled' ? 'badge-sched' : 'badge-draft';
+    const title = (p.title || '').trim();
+    const caption = (p.caption || '').trim();
+    const displayText = title || caption || 'Sin título';
+    const snippet = caption && caption !== displayText ? caption : '';
+    const fileNames = p.fileNames || [];
+    const filesDisplay = fileNames.length ? `<div class="post-note"><span class="note-icon">📎</span>${fileNames.length} archivo${fileNames.length > 1 ? 's' : ''} adjuntos</div>` : '';
+
+    html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="openModal(${pi})">
+      <div class="post-thumb">${p.emoji || '📝'}</div>
+      <div class="post-info">
+        <div class="post-caption-text">${displayText}</div>
+        <div class="post-meta">
+          <span class="badge ${statusBadge}">${p.status === 'published' ? 'Publicado' : p.status === 'scheduled' ? 'Programado' : 'Borrador'}</span>
+          ${p.ad ? '<span class="badge badge-ad">AD</span>' : ''}
+          <span class="meta-date">${formatDate(p.date)}</span>
+        </div>
+        <div class="post-note">
+          <span class="note-icon">${NET_LABELS[net] || net.toUpperCase()}</span>
+          ${snippet || 'Sin texto adicional'}
+        </div>
+        ${filesDisplay}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  mc.innerHTML = html;
+}
+
+// ============= STATS RENDERING =============
+function renderStats() {
+  const mc = document.getElementById('mainContent');
+  const availableYears = getAvailableStatsYears();
+  if (!availableYears.includes(statsFilterYear)) statsFilterYear = availableYears[0];
+  if (!Number.isInteger(statsFilterMonth) || statsFilterMonth < 0 || statsFilterMonth > 11) statsFilterMonth = currentMonth;
+
+  const allSummary = summarizePosts(posts);
+  const yearOptions = availableYears
+    .map(year => `<option value="${year}"${year === statsFilterYear ? ' selected' : ''}>${year}</option>`)
+    .join('');
+  const monthOptions = MONTHS
+    .map((monthName, monthIdx) => `<option value="${monthIdx}"${monthIdx === statsFilterMonth ? ' selected' : ''}>${monthName}</option>`)
+    .join('');
+
+  let html = `<div class="list-header">
+    <select id="statsModeSel" class="filter-sel" onchange="onStatsFilterChange()">
+      <option value="monthly"${statsViewMode === 'monthly' ? ' selected' : ''}>Resumen mensual</option>
+      <option value="annual"${statsViewMode === 'annual' ? ' selected' : ''}>Resumen anual</option>
+      <option value="cumulative"${statsViewMode === 'cumulative' ? ' selected' : ''}>Acumulado mes a mes</option>
+    </select>
+    <select id="statsYearSel" class="filter-sel" onchange="onStatsFilterChange()">${yearOptions}</select>
+    ${statsViewMode !== 'annual' ? `<select id="statsMonthSel" class="filter-sel" onchange="onStatsFilterChange()">${monthOptions}</select>` : ''}
+  </div>`;
+
+  if (statsViewMode === 'monthly') {
+    const monthPosts = getMonthPosts(statsFilterYear, statsFilterMonth);
+    const monthSummary = summarizePosts(monthPosts);
+    const sortedMonthPosts = [...monthPosts].sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
+    const maxMonthReach = Math.max(...sortedMonthPosts.map(post => getPostStats(post).reach), 0);
+    const monthLabel = `${MONTHS[statsFilterMonth]} ${statsFilterYear}`;
+
+    html += `<div class="stats-title">Resumen mensual</div>`;
+    html += `<div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-val">${formatMetric(monthSummary.reach)}</div><div class="metric-change change-neutral">${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Consultas</div><div class="metric-val">${formatMetric(monthSummary.inquiries)}</div><div class="metric-change change-neutral">Publicaciones del mes</div></div>
+      <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(monthSummary.followers)}</div><div class="metric-change change-neutral">Acumulado mensual</div></div>
+      <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(monthSummary.count)}</div><div class="metric-change change-neutral">Cargadas este mes</div></div>
+    </div>`;
+
+    html += `<div class="section-label">Publicaciones de ${monthLabel}</div>`;
+    if (!sortedMonthPosts.length) {
+      html += '<div class="empty"><div class="empty-icon">📊</div>No hay publicaciones en este mes</div>';
     } else {
-        document.getElementById('postTitle').value = '';
-        document.getElementById('postCaption').value = '';
+      const maxReach = maxMonthReach || 1;
+      sortedMonthPosts.forEach(post => {
+        const postStats = getPostStats(post);
+        const title = (post.title || post.caption || 'Sin título').trim();
+        const barWidth = Math.max(6, Math.round((postStats.reach / maxReach) * 100));
+        html += `<div class="stat-post-row" onclick="openModal(${posts.indexOf(post)})">
+          <div class="stat-thumb">${post.emoji || '📝'}</div>
+          <div class="stat-info">
+            <div class="stat-cap">${title}</div>
+            <div class="stat-sub">${formatDate(post.date)} · ${post.status === 'published' ? 'Publicado' : post.status === 'scheduled' ? 'Programado' : 'Borrador'}</div>
+            <div class="bar-wrap"><div class="bar-fill" style="width:${barWidth}%"></div></div>
+          </div>
+          <div class="stat-nums">
+            <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(postStats.reach)}</div></div>
+            <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(postStats.inquiries)}</div></div>
+            <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(postStats.followers)}</div></div>
+          </div>
+        </div>`;
+      });
+    }
+  } else if (statsViewMode === 'annual') {
+    const yearPosts = getYearPosts(statsFilterYear);
+    const annualSummary = summarizePosts(yearPosts);
+    const monthlyBreakdown = MONTHS.map((monthName, monthIdx) => ({
+      monthName,
+      monthIdx,
+      summary: summarizePosts(getMonthPosts(statsFilterYear, monthIdx))
+    }));
+
+    html += `<div class="stats-title">Resumen anual ${statsFilterYear}</div>`;
+    html += `<div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Alcance anual</div><div class="metric-val">${formatMetric(annualSummary.reach)}</div><div class="metric-change change-neutral">Año completo</div></div>
+      <div class="metric-card"><div class="metric-label">Consultas anuales</div><div class="metric-val">${formatMetric(annualSummary.inquiries)}</div><div class="metric-change change-neutral">Año completo</div></div>
+      <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(annualSummary.followers)}</div><div class="metric-change change-neutral">Año completo</div></div>
+      <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(annualSummary.count)}</div><div class="metric-change change-neutral">Publicaciones del año</div></div>
+    </div>`;
+
+    html += `<div class="section-label">Detalle por mes (${statsFilterYear})</div>`;
+    monthlyBreakdown.forEach(row => {
+      html += `<div class="stat-post-row">
+        <div class="stat-thumb">${row.monthName.slice(0, 3)}</div>
+        <div class="stat-info">
+          <div class="stat-cap">${row.monthName}</div>
+          <div class="stat-sub">${formatMetric(row.summary.count)} publicaciones</div>
+        </div>
+        <div class="stat-nums">
+          <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(row.summary.reach)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(row.summary.inquiries)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(row.summary.followers)}</div></div>
+        </div>
+      </div>`;
+    });
+  } else {
+    const cappedMonth = statsFilterMonth;
+    const monthLabel = `${MONTHS[cappedMonth]} ${statsFilterYear}`;
+    const cumulativeRows = [];
+    const running = { reach: 0, inquiries: 0, followers: 0, count: 0 };
+
+    for (let monthIdx = 0; monthIdx <= cappedMonth; monthIdx++) {
+      const monthSummary = summarizePosts(getMonthPosts(statsFilterYear, monthIdx));
+      running.reach += monthSummary.reach;
+      running.inquiries += monthSummary.inquiries;
+      running.followers += monthSummary.followers;
+      running.count += monthSummary.count;
+      cumulativeRows.push({ monthName: MONTHS[monthIdx], summary: { ...running } });
     }
 
-    if(isSharedView) {
-        document.getElementById('savePostBtn').style.display = 'none';
-        document.getElementById('fileInput').style.display = 'none';
-        document.querySelectorAll('#modalPost input, #modalPost textarea').forEach(el => el.readOnly = true);
+    const cumulativeSummary = cumulativeRows.length ? cumulativeRows[cumulativeRows.length - 1].summary : { reach: 0, inquiries: 0, followers: 0, count: 0 };
+
+    html += `<div class="stats-title">Acumulado mes a mes</div>`;
+    html += `<div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Alcance acumulado</div><div class="metric-val">${formatMetric(cumulativeSummary.reach)}</div><div class="metric-change change-neutral">Hasta ${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Consultas acumuladas</div><div class="metric-val">${formatMetric(cumulativeSummary.inquiries)}</div><div class="metric-change change-neutral">Hasta ${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Seguidores acumulados</div><div class="metric-val">${formatMetric(cumulativeSummary.followers)}</div><div class="metric-change change-neutral">Hasta ${monthLabel}</div></div>
+      <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(cumulativeSummary.count)}</div><div class="metric-change change-neutral">Acumuladas en el año</div></div>
+    </div>`;
+
+    html += `<div class="section-label">Evolución acumulada (${statsFilterYear})</div>`;
+    cumulativeRows.forEach(row => {
+      html += `<div class="stat-post-row">
+        <div class="stat-thumb">${row.monthName.slice(0, 3)}</div>
+        <div class="stat-info">
+          <div class="stat-cap">Hasta ${row.monthName}</div>
+          <div class="stat-sub">${formatMetric(row.summary.count)} publicaciones acumuladas</div>
+        </div>
+        <div class="stat-nums">
+          <div class="stat-num-col"><div class="stat-num-label">Alcance</div><div class="stat-num-val">${formatMetric(row.summary.reach)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Consultas</div><div class="stat-num-val">${formatMetric(row.summary.inquiries)}</div></div>
+          <div class="stat-num-col"><div class="stat-num-label">Seguidores</div><div class="stat-num-val">${formatMetric(row.summary.followers)}</div></div>
+        </div>
+      </div>`;
+    });
+  }
+
+  html += `<div class="section-label">Resumen acumulado de todas las publicaciones</div>`;
+  html += `<div class="metrics-grid">
+    <div class="metric-card"><div class="metric-label">Alcance total</div><div class="metric-val">${formatMetric(allSummary.reach)}</div><div class="metric-change change-neutral">Todas las publicaciones</div></div>
+    <div class="metric-card"><div class="metric-label">Consultas totales</div><div class="metric-val">${formatMetric(allSummary.inquiries)}</div><div class="metric-change change-neutral">Histórico completo</div></div>
+    <div class="metric-card"><div class="metric-label">Seguidores nuevos</div><div class="metric-val">${formatMetric(allSummary.followers)}</div><div class="metric-change change-neutral">Histórico completo</div></div>
+    <div class="metric-card"><div class="metric-label">Publicaciones</div><div class="metric-val">${formatMetric(allSummary.count)}</div><div class="metric-change change-neutral">Subidas en total</div></div>
+  </div>`;
+
+  mc.innerHTML = html;
+}
+
+// ============= CLIENTS RENDERING =============
+function renderClients() {
+  const mc = document.getElementById('mainContent');
+  const statusColors = {
+    consulta: {bg:'#FDF4E3', color:'#8B5E0A', label:'📋 Consulta'},
+    reunión: {bg:'#E1F5EE', color:'#075E54', label:'📅 Reunión'},
+    negociando: {bg:'#EEECff', color:'#5B4FFF', label:'💬 Negociando'},
+    cerrado: {bg:'#E6F5ED', color:'#1D7D4F', label:'✅ Cerrado'},
+    rechazado: {bg:'#FEF1EC', color:'#C0392B', label:'❌ Rechazado'}
+  };
+  
+  let html = `<div class="list-header">
+    <button class="add-btn" onclick="openClientModal(-1)" style="${isSharedView ? 'display:none' : ''}">＋ Nuevo cliente</button>
+    <button class="add-btn" style="padding:8px 16px; margin-left: ${isSharedView ? '0' : 'auto'}" onclick="exportClientsToExcel()">📊 Descargar como Excel (CSV)</button>
+  </div>`;
+
+  if (potentialClients.length === 0) {
+    html += `<div class="empty"><div class="empty-icon">💬</div>Sin clientes potenciales aún</div>`;
+  } else {
+    html += '<div style="display:grid;gap:10px">';
+    potentialClients.forEach((pc, idx) => {
+      const sc = statusColors[pc.status] || statusColors.consulta;
+      const editButtons = isSharedView ? '' : `<div style="display:flex;gap:6px;flex-direction:column"><button class="add-btn" style="padding:6px 10px;font-size:12px" onclick="openClientModal(${idx})">✏️ Editar</button><button class="add-btn" style="padding:6px 10px;font-size:12px;background:#C0392B" onclick="deleteClientPotential(${idx})">🗑️ Borrar</button></div>`;
+      html += `<div class="post-card" style="cursor:${isSharedView ? 'default' : 'pointer'}"><div class="post-thumb" style="background:${sc.bg};color:${sc.color};font-size:24px">${sc.label.split(' ')[0]}</div><div class="post-info" style="flex:1"><div class="post-caption-text" style="cursor:${isSharedView ? 'default' : 'pointer'}" onclick="${isSharedView ? '' : `openClientModal(${idx})`}">${pc.name}</div><div class="post-meta"><span style="font-weight:600;color:${sc.color}">${sc.label}</span><span style="color:var(--text-3)">|</span><span class="meta-date">${pc.date}</span></div><div class="post-note"><span class="note-icon">📞</span>${pc.phone}</div>${pc.notes ? `<div class="post-note"><span class="note-icon">📝</span>${pc.notes}</div>` : ''}</div>${editButtons}</div>`;
+    });
+    html += '</div>';
+  }
+  mc.innerHTML = html;
+}
+
+// ============= POST MODAL =============
+function openModal(idx, prefillDate) {
+  if (isSharedView && idx < 0) return; // Cliente no puede crear nueva publicación
+  
+  editingIdx = idx;
+  isAd = false;
+  document.querySelectorAll('.net-tag').forEach(t => t.classList.remove('selected'));
+  document.querySelectorAll('.status-opt').forEach(t => { t.className = 'status-opt'; });
+  document.getElementById('postTitle').value = '';
+  document.getElementById('postCaption').value = '';
+  document.getElementById('postNote').value = '';
+  document.getElementById('postReach').value = '';
+  document.getElementById('postInquiries').value = '';
+  document.getElementById('postFollowers').value = '';
+  document.getElementById('previewImgs').innerHTML = '';
+  uploadedFileNames = [];
+  document.getElementById('adToggleRow').classList.remove('ad-active');
+  selectedStatus = 'scheduled';
+  
+  if (idx >= 0) {
+    const p = posts[idx];
+    document.getElementById('modalTitle').textContent = isSharedView ? 'Ver publicación' : 'Editar publicación';
+    document.getElementById('postDate').value = p.date.replace(' ', 'T');
+    document.getElementById('postTitle').value = p.title || '';
+    document.getElementById('postCaption').value = p.caption;
+    document.getElementById('postNote').value = p.note || '';
+    const stats = getPostStats(p);
+    document.getElementById('postReach').value = stats.reach || '';
+    document.getElementById('postInquiries').value = stats.inquiries || '';
+    document.getElementById('postFollowers').value = stats.followers || '';
+    
+    // Recuperar y renderizar los nombres de archivos subidos
+    uploadedFileNames = p.fileNames || [];
+    const prev = document.getElementById('previewImgs');
+    prev.innerHTML = '';
+    if (uploadedFileNames.length > 0) {
+      uploadedFileNames.forEach(name => {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'font-size:12px;background:var(--surface-2);color:var(--text);padding:4px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;';
+        badge.textContent = '📎 ' + name;
+        prev.appendChild(badge);
+      });
     }
 
-    document.getElementById('modalPost').classList.add('open');
+    p.networks.forEach(n => {
+      document.querySelectorAll('.net-tag').forEach(t => {
+        if (t.classList.contains(n)) t.classList.add('selected');
+      });
+    });
+    selectedStatus = p.status;
+    isAd = !!p.ad;
+    if (isAd) document.getElementById('adToggleRow').classList.add('ad-active');
+  } else {
+    document.getElementById('modalTitle').textContent = 'Nueva publicación';
+    const d = prefillDate ? prefillDate + 'T10:00' : (() => {
+      const n = new Date();
+      return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}T10:00`;
+    })();
+    document.getElementById('postDate').value = d;
+  }
+  
+  document.querySelectorAll('.status-opt').forEach(t => {
+    if (t.dataset.st === selectedStatus) t.classList.add(`sel-${selectedStatus}`);
+  });
+
+  // Lógica de solo lectura para la vista compartida
+  const isReadOnly = isSharedView;
+  ['postDate', 'postTitle', 'postCaption', 'postReach', 'postInquiries', 'postFollowers', 'postNote'].forEach(id => {
+    document.getElementById(id).disabled = isReadOnly;
+  });
+  
+  document.getElementById('savePostBtn').style.display = isReadOnly ? 'none' : 'inline-block';
+  const delBtn = document.getElementById('deletePostBtn');
+  if (delBtn) delBtn.style.display = (idx >= 0 && !isReadOnly) ? 'inline-block' : 'none';
+  
+  const uploadArea = document.querySelector('.upload-area');
+  if (uploadArea) uploadArea.style.display = isReadOnly ? 'none' : 'block';
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function toggleNet(el) { 
+  if (isSharedView) return;
+  el.classList.toggle('selected'); 
+}
+
+function selectStatus(el, status) {
+  if (isSharedView) return;
+  document.querySelectorAll('.status-opt').forEach(t => { t.className = 'status-opt'; });
+  el.classList.add(`sel-${status}`);
+  selectedStatus = status;
+}
+
+function toggleAd() {
+  if (isSharedView) return;
+  isAd = !isAd;
+  document.getElementById('adToggleRow').classList.toggle('ad-active', isAd);
+}
+
+let uploadedFileNames = [];
+
+function handleFileUpload(input) {
+  if (isSharedView) return;
+  const prev = document.getElementById('previewImgs');
+  prev.innerHTML = '';
+  uploadedFileNames = [];
+  Array.from(input.files).slice(0, 4).forEach(f => {
+    uploadedFileNames.push(f.name);
+    const badge = document.createElement('div');
+    badge.style.cssText = 'font-size:12px;background:var(--surface-2);color:var(--text);padding:4px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;';
+    badge.textContent = '📎 ' + f.name;
+    prev.appendChild(badge);
+  });
+}
+
+function exportClientsToExcel() {
+  if (!potentialClients.length) {
+    alert('No hay clientes para exportar');
+    return;
+  }
+  const headers = ['Nombre', 'WhatsApp', 'Estado', 'Fecha', 'Notas'];
+  const rows = potentialClients.map(pc => [
+    pc.name,
+    pc.phone,
+    pc.status,
+    pc.date,
+    pc.notes || ''
+  ]);
+  const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.setAttribute('href', URL.createObjectURL(blob));
+  link.setAttribute('download', `clientes_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function savePost() {
-    const p = {
-        title: document.getElementById('postTitle').value,
-        caption: document.getElementById('postCaption').value,
-        reach: document.getElementById('statReach').value,
-        inquiries: document.getElementById('statInquiries').value,
-        files: uploadedFiles
-    };
-
-    if(!state.posts[state.activeClient]) state.posts[state.activeClient] = [];
-    if(editingIdx >= 0) state.posts[state.activeClient][editingIdx] = p;
-    else state.posts[state.activeClient].push(p);
-
-    saveState();
-    closePostModal();
-    renderView();
+  if (isSharedView) return;
+  const date = document.getElementById('postDate').value.replace('T', ' ');
+  const title = document.getElementById('postTitle').value.trim();
+  const caption = document.getElementById('postCaption').value.trim();
+  const note = document.getElementById('postNote').value.trim();
+  const reach = normalizeStatValue(document.getElementById('postReach').value);
+  const inquiries = normalizeStatValue(document.getElementById('postInquiries').value);
+  const followers = normalizeStatValue(document.getElementById('postFollowers').value);
+  const networks = Array.from(document.querySelectorAll('.net-tag.selected')).map(t => [...t.classList].find(c => c !== 'net-tag' && c !== 'selected'));
+  if (!title && !caption) { alert('Escribí un título o el texto de la publicación.'); return; }
+  if (!networks.length) { alert('Seleccioná al menos una red social.'); return; }
+  
+  const emojis = ['📸','☕','🎉','💡','🌿','🍋','💻','✨','🎨','📅','🛍️','🔥'];
+  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)], stats: {reach, inquiries, followers}, fileNames: uploadedFileNames};
+  if (editingIdx >= 0) posts[editingIdx] = post;
+  else posts.push(post);
+  saveAppState();
+  closeModal();
+  renderView();
 }
 
-function closePostModal() { document.getElementById('modalPost').classList.remove('open'); }
-
-function renderView(view = 'calendar') {
-    const mc = document.getElementById('mainContent');
-    const clientPosts = state.posts[state.activeClient] || [];
-
-    if(view === 'calendar') {
-        let html = `<div class="cal-grid">`;
-        for(let i=1; i<=28; i++) {
-            html += `<div class="cal-day" onclick="openPostModal(-1)">
-                <div style="font-size:10px; color:var(--text-3)">${i}</div>`;
-            clientPosts.forEach((p, idx) => {
-                html += `<div class="post-pill" style="background:var(--accent-light); color:var(--accent)" onclick="event.stopPropagation(); openPostModal(${idx})">📄 ${p.title}</div>`;
-            });
-            html += `</div>`;
-        }
-        mc.innerHTML = html + `</div>`;
-    }
-
-    if(view === 'prospects') {
-        mc.innerHTML = `<h3>Prospectos Potenciales</h3><br><button class="add-btn" onclick="exportCSV()">Exportar Excel (CSV)</button>`;
-    }
+function formatDate(dt) {
+  const d = new Date(dt.replace(' ', 'T'));
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function applySharedRestrictions() {
-    document.getElementById('shareBtn').style.display = 'none';
-    document.getElementById('clientSel').style.pointerEvents = 'none';
-    document.getElementById('clientSel').style.opacity = '0.7';
+// ============= SHARE MODAL =============
+function closeShareModal(e) {
+  if (e && e.target !== document.getElementById('shareModalOverlay')) return;
+  document.getElementById('shareModalOverlay').classList.remove('open');
 }
 
-function generateShareLink() {
-    const url = window.location.href.split('?')[0] + `?view=client&client=${encodeURIComponent(state.activeClient)}`;
-    prompt("Link para tu cliente (Solo lectura):", url);
+function generateShareCode() {
+  const clientName = document.getElementById('clientSelText').textContent;
+  const duration = parseInt(document.getElementById('shareDuration').value);
+  const code = 'share_' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  const expiresAt = duration > 0 ? new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString() : null;
+  sharedCodes[code] = {clientName, createdAt: new Date().toISOString(), expiresAt};
+  saveSharedCodes();
+  const baseUrl = window.location.origin + window.location.pathname;
+  const shareLink = `${baseUrl}?code=${code}`;
+  document.getElementById('shareResultLink').value = shareLink;
+  document.getElementById('shareResultField').style.display = 'block';
 }
 
-function exportCSV() {
-    let csv = "Título,Alcance,Consultas\n";
-    (state.posts[state.activeClient] || []).forEach(p => {
-        csv += `"${p.title}","${p.reach}","${p.inquiries}"\n`;
+function copyShareLink() {
+  const link = document.getElementById('shareResultLink').value;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => { btn.textContent = originalText; }, 2000);
+  }).catch(() => alert('No se pudo copiar al portapapeles'));
+}
+
+// ============= INITIALIZATION =============
+function initEventListeners() {
+  const shareBtn = document.getElementById('shareBtn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', () => {
+      document.getElementById('shareClientName').textContent = document.getElementById('clientSelText').textContent;
+      document.getElementById('shareResultField').style.display = 'none';
+      document.getElementById('shareResultLink').value = '';
+      document.getElementById('shareModalOverlay').classList.add('open');
     });
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `reporte_${state.activeClient}.csv`;
-    link.click();
+  }
 }
 
-init();
+loadSharedCodes();
+checkSharedAccess();
+updateClientSelect();
+initEventListeners();
+renderCalendar();
 </script>
 </body>
 </html>
