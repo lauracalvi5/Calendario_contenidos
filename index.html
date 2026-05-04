@@ -50,6 +50,7 @@
   .cal-month { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
   .add-btn { font-family: var(--font); font-size: 13px; font-weight: 600; padding: 8px 16px; border: none; border-radius: var(--radius-md); background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(91,79,255,.35); transition: all 0.18s; display: flex; align-items: center; gap: 6px; }
   .add-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(91,79,255,.4); }
+  .add-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background: var(--border); border: 1.5px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-md); }
   .cal-day-header { background: var(--surface-2); padding: 10px 6px; text-align: center; font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; }
   .cal-day { background: var(--surface); padding: 8px; min-height: 96px; cursor: pointer; transition: background 0.12s; position: relative; }
@@ -82,7 +83,8 @@
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.6px; }
   .field-input, .field-textarea { font-family: var(--font); width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 9px 12px; font-size: 14px; color: var(--text); background: var(--surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s; box-shadow: var(--shadow-sm); }
-  .field-input:focus, .field-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,79,255,.1); }
+  .field-input:disabled, .field-textarea:disabled { background: var(--surface-2); color: var(--text-2); cursor: not-allowed; }
+  .field-input:focus:not(:disabled), .field-textarea:focus:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,79,255,.1); }
   .field-textarea { min-height: 88px; resize: vertical; }
   .network-picker { display: flex; gap: 6px; flex-wrap: wrap; }
   .net-tag { font-size: 12px; font-weight: 500; padding: 5px 12px; border-radius: var(--radius-md); cursor: pointer; border: 1.5px solid var(--border); color: var(--text-2); background: var(--surface); transition: all 0.15s; box-shadow: var(--shadow-sm); }
@@ -185,7 +187,7 @@
           <span style="font-size:12px;color:var(--text-2);flex-shrink:0">▼</span>
           <div class="client-dropdown" id="clientDropdown"></div>
         </div>
-        <button class="share-btn" style="padding:7px 10px" onclick="showDeleteClientDialog()" title="Borrar cliente">✕</button>
+        <button class="share-btn" style="padding:7px 10px" onclick="showDeleteClientDialog()" title="Borrar cliente" id="deleteClientBtn">✕</button>
       </div>
     </div>
     <button class="share-btn" id="shareBtn">↗ Compartir vista</button>
@@ -213,9 +215,9 @@
       <div class="field"><div class="field-label">Imagen o video</div><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="handleFileUpload(this)"><div style="font-size:22px;margin-bottom:4px">🖼️</div><div class="upload-label">Hacé clic para subir archivos</div><div class="upload-sub">JPG, PNG, MP4 — hasta 100 MB</div></div><div class="preview-imgs" id="previewImgs"></div></div>
       <div class="field"><div class="field-label">Estado</div><div class="status-picker"><span class="status-opt" data-st="draft" onclick="selectStatus(this,'draft')">Borrador</span><span class="status-opt" data-st="scheduled" onclick="selectStatus(this,'scheduled')">Programado</span><span class="status-opt" data-st="published" onclick="selectStatus(this,'published')">Publicado</span></div></div>
       <div class="field"><div class="field-label">Tipo de publicación</div><div class="toggle-row" id="adToggleRow" onclick="toggleAd()"><div class="toggle-label"><div class="toggle-label-main">¿Es publicidad paga? 💰</div><div class="toggle-label-sub">Activá si es un aviso pago, boosting o campaña</div></div><div class="toggle-switch" id="adToggleSwitch"></div></div></div>
-      <div class="field"><div class="field-label">Nota interna (solo vos)</div><input type="text" class="field-input" id="postNote" placeholder="Ej: confirmar hashtags con cliente..."></div>
+      <div class="field"><div class="field-label">Nota interna</div><input type="text" class="field-input" id="postNote" placeholder="Ej: confirmar hashtags con cliente..."></div>
     </div>
-    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button id="deletePostBtn" class="btn-save" style="background:#C0392B;display:none;margin-right:8px" onclick="deletePost()">🗑️ Eliminar publicación</button><button class="btn-save" onclick="savePost()">Guardar publicación</button></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button id="deletePostBtn" class="btn-save" style="background:#C0392B;display:none;margin-right:8px" onclick="deletePost()">🗑️ Eliminar publicación</button><button class="btn-save" id="savePostBtn" onclick="savePost()">Guardar publicación</button></div>
   </div>
 </div>
 
@@ -293,7 +295,6 @@ let sharedCodes = {};
 
 const defaultClients = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
 const defaultPotentialClients = [];
-
 const defaultPosts = [];
 
 const seededPosts = [
@@ -331,7 +332,6 @@ function loadAppState() {
       posts: cloneData(defaultPosts)
     };
   }
-
   try {
     const parsed = JSON.parse(stored);
     const storedPosts = Array.isArray(parsed.posts) ? parsed.posts.filter(post => !isSeedPost(post)) : [];
@@ -445,21 +445,20 @@ function checkSharedAccess() {
     document.getElementById('clientSel').style.pointerEvents = 'none';
     document.getElementById('clientSel').style.opacity = '0.6';
     document.getElementById('shareBtn').style.display = 'none';
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      if (btn.textContent.trim() !== 'Calendario') btn.disabled = true;
-    });
-    document.querySelectorAll('.add-btn').forEach(btn => btn.style.display = 'none');
-    document.querySelectorAll('.btn-save').forEach(btn => btn.style.display = 'none');
-    document.querySelectorAll('.btn-cancel').forEach(btn => btn.textContent = 'Cerrar');
+    
+    const deleteClientBtn = document.getElementById('deleteClientBtn');
+    if (deleteClientBtn) deleteClientBtn.style.display = 'none';
+    
     const info = document.createElement('div');
     info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
-    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas. Puedes ver archivos, clientes y estadísticas.';
+    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas. Puedes ver archivos, clientes y estadísticas. No se pueden realizar cambios.';
     document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
   }
 }
 
 // ============= CLIENT DROPDOWN =============
 function updateClientSelect() {
+  if (isSharedView) return;
   const text = document.getElementById('clientSelText');
   const dropdown = document.getElementById('clientDropdown');
   text.textContent = clients[0] || 'Sin cliente';
@@ -475,6 +474,7 @@ function selectClient(name) {
 }
 
 function toggleClientDropdown() {
+  if (isSharedView) return;
   event.stopPropagation();
   const sel = document.getElementById('clientSel');
   const dd = document.getElementById('clientDropdown');
@@ -491,7 +491,6 @@ document.addEventListener('click', () => {
   }
 });
 
-// ============= CLIENT DELETION =============
 function showDeleteClientDialog() {
   const sel = document.getElementById('deleteClientSel');
   sel.innerHTML = clients.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -514,7 +513,6 @@ function deleteClient() {
   }
 }
 
-// Add a real client (quick prompt) and select it
 function addClientPrompt() {
   document.getElementById('newClientName').value = '';
   document.getElementById('newClientNotes').value = '';
@@ -537,8 +535,8 @@ function saveNewClient() {
   closeAddClientModal();
 }
 
-// ============= CLIENT MANAGEMENT =============
 function openClientModal(idx) {
+  if (isSharedView) return;
   editingClientIdx = idx;
   if (idx >= 0) {
     const pc = potentialClients[idx];
@@ -589,9 +587,8 @@ function deleteClientPotential(idx) {
   }
 }
 
-// Delete a post currently being edited
 function deletePost() {
-  if (editingIdx < 0) return;
+  if (editingIdx < 0 || isSharedView) return;
   if (!confirm('¿Borrar esta publicación? Esta acción no se puede deshacer.')) return;
   posts.splice(editingIdx, 1);
   editingIdx = -1;
@@ -600,7 +597,6 @@ function deletePost() {
   renderView();
 }
 
-// ============= VIEW SWITCHING =============
 function switchView(view, btn) {
   currentView = view;
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -623,7 +619,7 @@ function renderCalendar() {
   const prevDays = new Date(currentYear, currentMonth, 0).getDate();
   const today = new Date();
   
-  let html = `<div class="cal-header"><div class="cal-nav"><button class="cal-arrow" onclick="prevMonth()">‹</button><span class="cal-month">${MONTHS[currentMonth]} ${currentYear}</span><button class="cal-arrow" onclick="nextMonth()">›</button></div><button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button></div><div class="cal-grid">`;
+  let html = `<div class="cal-header"><div class="cal-nav"><button class="cal-arrow" onclick="prevMonth()">‹</button><span class="cal-month">${MONTHS[currentMonth]} ${currentYear}</span><button class="cal-arrow" onclick="nextMonth()">›</button></div>${isSharedView ? '' : '<button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button>'}</div><div class="cal-grid">`;
   
   DAYS.forEach(d => { html += `<div class="cal-day-header">${d}</div>`; });
   
@@ -668,14 +664,14 @@ function nextMonth() {
   renderCalendar();
 }
 
-// ============= LIST RENDERING (simplified) =============
+// ============= LIST RENDERING =============
 function renderList() {
   const mc = document.getElementById('mainContent');
   const visiblePosts = [...posts]
     .filter(p => !isSharedView || p.status === 'published')
     .sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
 
-  let html = '<div class="list-header"><button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button></div>';
+  let html = `<div class="list-header">${isSharedView ? '' : '<button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button>'}</div>`;
 
   if (!visiblePosts.length) {
     html += '<div class="empty"><div class="empty-icon">📋</div>Sin publicaciones todavía</div>';
@@ -693,9 +689,9 @@ function renderList() {
     const displayText = title || caption || 'Sin título';
     const snippet = caption && caption !== displayText ? caption : '';
     const fileNames = p.fileNames || [];
-    const filesDisplay = fileNames.length ? `<div class="post-note"><span class="note-icon">📎</span>${fileNames.length} archivo${fileNames.length > 1 ? 's' : ''}</div>` : '';
+    const filesDisplay = fileNames.length ? `<div class="post-note"><span class="note-icon">📎</span>${fileNames.length} archivo${fileNames.length > 1 ? 's' : ''} adjuntos</div>` : '';
 
-    html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="${isSharedView ? '' : `openModal(${pi})`}" style="${isSharedView ? 'cursor: default;' : ''}">
+    html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="openModal(${pi})">
       <div class="post-thumb">${p.emoji || '📝'}</div>
       <div class="post-info">
         <div class="post-caption-text">${displayText}</div>
@@ -717,7 +713,7 @@ function renderList() {
   mc.innerHTML = html;
 }
 
-// ============= STATS RENDERING (simplified) =============
+// ============= STATS RENDERING =============
 function renderStats() {
   const mc = document.getElementById('mainContent');
   const availableYears = getAvailableStatsYears();
@@ -741,10 +737,6 @@ function renderStats() {
     <select id="statsYearSel" class="filter-sel" onchange="onStatsFilterChange()">${yearOptions}</select>
     ${statsViewMode !== 'annual' ? `<select id="statsMonthSel" class="filter-sel" onchange="onStatsFilterChange()">${monthOptions}</select>` : ''}
   </div>`;
-
-  if (isSharedView) {
-    document.querySelectorAll('.filter-sel').forEach(el => el.disabled = false);
-  }
 
   if (statsViewMode === 'monthly') {
     const monthPosts = getMonthPosts(statsFilterYear, statsFilterMonth);
@@ -832,9 +824,7 @@ function renderStats() {
       cumulativeRows.push({ monthName: MONTHS[monthIdx], summary: { ...running } });
     }
 
-    const cumulativeSummary = cumulativeRows.length
-      ? cumulativeRows[cumulativeRows.length - 1].summary
-      : { reach: 0, inquiries: 0, followers: 0, count: 0 };
+    const cumulativeSummary = cumulativeRows.length ? cumulativeRows[cumulativeRows.length - 1].summary : { reach: 0, inquiries: 0, followers: 0, count: 0 };
 
     html += `<div class="stats-title">Acumulado mes a mes</div>`;
     html += `<div class="metrics-grid">
@@ -883,7 +873,11 @@ function renderClients() {
     rechazado: {bg:'#FEF1EC', color:'#C0392B', label:'❌ Rechazado'}
   };
   
-  let html = `<div class="list-header"><button class="add-btn" onclick="openClientModal(-1)" style="${isSharedView ? 'display:none' : ''}">＋ Nuevo cliente</button>${isSharedView ? `<button class="add-btn" style="padding:8px 16px" onclick="exportClientsToExcel()">📊 Descargar como CSV</button>` : ''}</div>`;
+  let html = `<div class="list-header">
+    <button class="add-btn" onclick="openClientModal(-1)" style="${isSharedView ? 'display:none' : ''}">＋ Nuevo cliente</button>
+    <button class="add-btn" style="padding:8px 16px; margin-left: ${isSharedView ? '0' : 'auto'}" onclick="exportClientsToExcel()">📊 Descargar como Excel (CSV)</button>
+  </div>`;
+
   if (potentialClients.length === 0) {
     html += `<div class="empty"><div class="empty-icon">💬</div>Sin clientes potenciales aún</div>`;
   } else {
@@ -900,6 +894,8 @@ function renderClients() {
 
 // ============= POST MODAL =============
 function openModal(idx, prefillDate) {
+  if (isSharedView && idx < 0) return; // Cliente no puede crear nueva publicación
+  
   editingIdx = idx;
   isAd = false;
   document.querySelectorAll('.net-tag').forEach(t => t.classList.remove('selected'));
@@ -917,7 +913,7 @@ function openModal(idx, prefillDate) {
   
   if (idx >= 0) {
     const p = posts[idx];
-    document.getElementById('modalTitle').textContent = 'Editar publicación';
+    document.getElementById('modalTitle').textContent = isSharedView ? 'Ver publicación' : 'Editar publicación';
     document.getElementById('postDate').value = p.date.replace(' ', 'T');
     document.getElementById('postTitle').value = p.title || '';
     document.getElementById('postCaption').value = p.caption;
@@ -926,7 +922,20 @@ function openModal(idx, prefillDate) {
     document.getElementById('postReach').value = stats.reach || '';
     document.getElementById('postInquiries').value = stats.inquiries || '';
     document.getElementById('postFollowers').value = stats.followers || '';
+    
+    // Recuperar y renderizar los nombres de archivos subidos
     uploadedFileNames = p.fileNames || [];
+    const prev = document.getElementById('previewImgs');
+    prev.innerHTML = '';
+    if (uploadedFileNames.length > 0) {
+      uploadedFileNames.forEach(name => {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'font-size:12px;background:var(--surface-2);color:var(--text);padding:4px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;';
+        badge.textContent = '📎 ' + name;
+        prev.appendChild(badge);
+      });
+    }
+
     p.networks.forEach(n => {
       document.querySelectorAll('.net-tag').forEach(t => {
         if (t.classList.contains(n)) t.classList.add('selected');
@@ -947,9 +956,20 @@ function openModal(idx, prefillDate) {
   document.querySelectorAll('.status-opt').forEach(t => {
     if (t.dataset.st === selectedStatus) t.classList.add(`sel-${selectedStatus}`);
   });
-  // show delete button only when editing existing post
+
+  // Lógica de solo lectura para la vista compartida
+  const isReadOnly = isSharedView;
+  ['postDate', 'postTitle', 'postCaption', 'postReach', 'postInquiries', 'postFollowers', 'postNote'].forEach(id => {
+    document.getElementById(id).disabled = isReadOnly;
+  });
+  
+  document.getElementById('savePostBtn').style.display = isReadOnly ? 'none' : 'inline-block';
   const delBtn = document.getElementById('deletePostBtn');
-  if (delBtn) delBtn.style.display = (editingIdx >= 0 ? 'inline-block' : 'none');
+  if (delBtn) delBtn.style.display = (idx >= 0 && !isReadOnly) ? 'inline-block' : 'none';
+  
+  const uploadArea = document.querySelector('.upload-area');
+  if (uploadArea) uploadArea.style.display = isReadOnly ? 'none' : 'block';
+
   document.getElementById('modalOverlay').classList.add('open');
 }
 
@@ -961,15 +981,20 @@ function closeModalOutside(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
 }
 
-function toggleNet(el) { el.classList.toggle('selected'); }
+function toggleNet(el) { 
+  if (isSharedView) return;
+  el.classList.toggle('selected'); 
+}
 
 function selectStatus(el, status) {
+  if (isSharedView) return;
   document.querySelectorAll('.status-opt').forEach(t => { t.className = 'status-opt'; });
   el.classList.add(`sel-${status}`);
   selectedStatus = status;
 }
 
 function toggleAd() {
+  if (isSharedView) return;
   isAd = !isAd;
   document.getElementById('adToggleRow').classList.toggle('ad-active', isAd);
 }
@@ -977,15 +1002,16 @@ function toggleAd() {
 let uploadedFileNames = [];
 
 function handleFileUpload(input) {
+  if (isSharedView) return;
   const prev = document.getElementById('previewImgs');
   prev.innerHTML = '';
   uploadedFileNames = [];
   Array.from(input.files).slice(0, 4).forEach(f => {
     uploadedFileNames.push(f.name);
-    const img = document.createElement('img');
-    img.className = 'preview-img';
-    img.src = URL.createObjectURL(f);
-    prev.appendChild(img);
+    const badge = document.createElement('div');
+    badge.style.cssText = 'font-size:12px;background:var(--surface-2);color:var(--text);padding:4px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;';
+    badge.textContent = '📎 ' + f.name;
+    prev.appendChild(badge);
   });
 }
 
@@ -1014,6 +1040,7 @@ function exportClientsToExcel() {
 }
 
 function savePost() {
+  if (isSharedView) return;
   const date = document.getElementById('postDate').value.replace('T', ' ');
   const title = document.getElementById('postTitle').value.trim();
   const caption = document.getElementById('postCaption').value.trim();
