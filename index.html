@@ -1074,38 +1074,27 @@ function closeShareModal(e) {
 
 async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
-  const duration = parseInt(document.getElementById('shareDuration').value);
   
-  // Mapeamos el array completo de posts sin filtrar por status
-  const sharedPosts = posts.map(p => ({
-    title: p.title || 'Sin título',
-    caption: p.caption || '',
-    date: p.date,
-    networks: p.networks || [],
-    emoji: p.emoji || '',
-    ad: p.ad || false,
-    stats: p.stats || {},
-    fileNames: p.fileNames || [],
-    status: p.status // Incluimos el estado por si quieres mostrarlo en la vista compartida
-  }));
-
   const payload = {
     c: clientName,
-    p: sharedPosts,
-    exp: duration > 0 ? Date.now() + duration * 86400000 : null
+    p: posts, // Aquí van todos los cargados
+    exp: null 
   };
 
   try {
-    // Codificación robusta para evitar errores con caracteres especiales
     const jsonStr = JSON.stringify(payload);
-    const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+    // Codificamos y reemplazamos caracteres problemáticos (+, /, =)
+    let encoded = btoa(unescape(encodeURIComponent(jsonStr)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, ''); 
+
     const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
     
     document.getElementById('shareResultLink').value = shareLink;
     document.getElementById('shareResultField').style.display = 'block';
   } catch (e) {
-    console.error("Error al generar el código:", e);
-    alert("Hubo un error al generar el enlace. Revisa la consola.");
+    console.error(e);
   }
 }
 
@@ -1137,49 +1126,45 @@ function renderPosts() {
 }
 function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
-  const shareData = params.get('data');
+  let shareData = params.get('data');
   
   if (!shareData) return;
 
   try {
-    // Usamos una decodificación que soporte caracteres especiales de forma segura
+    // 1. Restaurar el formato Base64 estándar
+    shareData = shareData.replace(/-/g, '+').replace(/_/g, '/');
+    while (shareData.length % 4) {
+      shareData += '=';
+    }
+
+    // 2. Decodificar
     const decoded = JSON.parse(decodeURIComponent(escape(atob(shareData))));
     
-    if (decoded.exp && Date.now() > decoded.exp) {
-      alert('Este link ha expirado.');
-      window.location.href = window.location.pathname;
-      return;
-    }
-    
+    // 3. Cargar datos
     isSharedView = true;
-    posts = decoded.p || []; 
+    posts = decoded.p || [];
     
-    document.addEventListener('DOMContentLoaded', () => {
-      // Actualizamos el nombre del cliente si el elemento existe
+    // Usamos un pequeño delay para asegurar que el DOM de Sabium cargó
+    setTimeout(() => {
       const clientLabel = document.getElementById('clientSelText');
       if (clientLabel) clientLabel.textContent = decoded.c;
       
-      // Bloqueamos edición
-      const clientSelect = document.getElementById('clientSel');
-      if (clientSelect) {
-        clientSelect.style.pointerEvents = 'none';
-        clientSelect.style.opacity = '0.6';
-      }
-      
-      // Ocultamos botones que no deben verse en la vista compartida
-      ['shareBtn', 'deleteClientBtn', 'addPostBtn'].forEach(id => {
+      // Ocultar herramientas de edición
+      const controls = ['shareBtn', 'addPostBtn', 'clientSel'];
+      controls.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if(el) el.style.display = 'none';
       });
 
-      renderPosts(); // Forzamos el renderizado con los nuevos datos
-    });
+      if (typeof renderPosts === 'function') renderPosts();
+    }, 100);
+
   } catch (e) {
-    console.error("Error detallado:", e);
-    alert("El link compartido es inválido o está corrupto.");
+    console.error("Error crítico de decodificación:", e);
+    // Si falla, mostramos un mensaje más técnico para ayudarte a debugear
+    alert("Error de enlace: Los datos son demasiado extensos o el formato es incompatible.");
   }
 }
-
 // ============= INITIALIZATION =============
 function initEventListeners() {
   const shareBtn = document.getElementById('shareBtn');
