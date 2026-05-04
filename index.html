@@ -1075,15 +1075,18 @@ function closeShareModal(e) {
 async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
   
+  // FILTRO: Solo enviamos los posts del mes actual para no saturar la URL
+  const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  const filteredPosts = posts.filter(p => p.date.startsWith(currentMonthKey));
+
   const payload = {
     c: clientName,
-    p: posts, // Aquí van todos los cargados
-    exp: null 
+    p: filteredPosts, // Enviamos solo una parte
+    v: "1.1" // Versión de protocolo
   };
 
   try {
     const jsonStr = JSON.stringify(payload);
-    // Codificamos y reemplazamos caracteres problemáticos (+, /, =)
     let encoded = btoa(unescape(encodeURIComponent(jsonStr)))
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
@@ -1091,13 +1094,18 @@ async function generateShareCode() {
 
     const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
     
+    // Validación de seguridad para vos como ingeniera:
+    if (shareLink.length > 2000) {
+        alert("¡Cuidado! El link es muy largo (" + shareLink.length + " carac.). Es probable que no funcione en todos los navegadores.");
+    }
+
     document.getElementById('shareResultLink').value = shareLink;
     document.getElementById('shareResultField').style.display = 'block';
   } catch (e) {
     console.error(e);
+    alert("Error al comprimir los datos.");
   }
 }
-
 // 2. Modificamos el Render para que muestre la imagen grande
 function renderMedia(post) {
   // Si no hay archivos, no mostramos nada
