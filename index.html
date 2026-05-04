@@ -206,6 +206,7 @@
     <div class="modal-header"><span class="modal-title" id="modalTitle">Nueva publicación</span><button class="modal-close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       <div class="field"><div class="field-label">Fecha y hora</div><input type="datetime-local" class="field-input" id="postDate"></div>
+      <div class="field"><div class="field-label">Título</div><input type="text" class="field-input" id="postTitle" placeholder="Ej: Lanzamiento de campaña"></div>
       <div class="field"><div class="field-label">Redes sociales</div><div class="network-picker"><span class="net-tag ig" onclick="toggleNet(this,'ig')">Instagram</span><span class="net-tag fb" onclick="toggleNet(this,'fb')">Facebook</span><span class="net-tag wa" onclick="toggleNet(this,'wa')">WhatsApp</span><span class="net-tag li" onclick="toggleNet(this,'li')">LinkedIn</span></div></div>
       <div class="field"><div class="field-label">Caption / Texto</div><textarea class="field-textarea" id="postCaption" placeholder="Escribí el texto de la publicación..."></textarea></div>
       <div class="field"><div class="field-label">Imagen o video</div><div class="upload-area" onclick="document.getElementById('fileInput').click()"><input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="handleFileUpload(this)"><div style="font-size:22px;margin-bottom:4px">🖼️</div><div class="upload-label">Hacé clic para subir archivos</div><div class="upload-sub">JPG, PNG, MP4 — hasta 50 MB</div></div><div class="preview-imgs" id="previewImgs"></div></div>
@@ -287,11 +288,7 @@ let sharedCode = null;
 let sharedCodes = {};
 
 const defaultClients = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
-const defaultPotentialClients = [
-  {id:1, name:'Juan García', status:'consulta', date:'2026-05-02', phone:'+54 9 11 2345-6789', notes:'Interesado en Instagram'},
-  {id:2, name:'María López', status:'reunión', date:'2026-05-08', phone:'+54 9 11 3456-7890', notes:'Videollamada confirmada'},
-  {id:3, name:'Carlos Ruiz', status:'negociando', date:'2026-04-28', phone:'+54 9 11 4567-8901', notes:'Espera presupuesto'}
-];
+const defaultPotentialClients = [];
 
 const defaultPosts = [];
 
@@ -335,8 +332,8 @@ function loadAppState() {
     const parsed = JSON.parse(stored);
     const storedPosts = Array.isArray(parsed.posts) ? parsed.posts.filter(post => !isSeedPost(post)) : [];
     return {
-      clients: Array.isArray(parsed.clients) && parsed.clients.length ? parsed.clients : defaultClients.slice(),
-      potentialClients: Array.isArray(parsed.potentialClients) && parsed.potentialClients.length ? parsed.potentialClients : cloneData(defaultPotentialClients),
+      clients: Array.isArray(parsed.clients) ? parsed.clients : defaultClients.slice(),
+      potentialClients: Array.isArray(parsed.potentialClients) ? parsed.potentialClients : cloneData(defaultPotentialClients),
       posts: storedPosts
     };
   } catch {
@@ -577,7 +574,8 @@ function renderCalendar() {
       const pi = posts.indexOf(p);
       const net = p.networks[0] || 'ig';
       const dotCls = p.status === 'published' ? 'dot-published' : p.status === 'scheduled' ? 'dot-scheduled' : 'dot-draft';
-      html += `<div class="post-pill ${net}" onclick="event.stopPropagation();openModal(${pi})"><span class="status-dot ${dotCls}"></span><span style="overflow:hidden;text-overflow:ellipsis;">${NET_LABELS[net]} ${p.emoji || ''}</span>${p.ad ? '<span class="ad-pill-badge">AD</span>' : ''}</div>`;
+      const pillTitle = (p.title || p.caption || 'Sin título').trim().slice(0, 24);
+      html += `<div class="post-pill ${net}" onclick="event.stopPropagation();openModal(${pi})"><span class="status-dot ${dotCls}"></span><span style="overflow:hidden;text-overflow:ellipsis;">${NET_LABELS[net]} ${p.emoji || ''} ${pillTitle}</span>${p.ad ? '<span class="ad-pill-badge">AD</span>' : ''}</div>`;
     });
     if (dayPosts.length > 3) html += `<div style="font-size:10px;color:var(--text-3);padding:1px 2px">+${dayPosts.length - 3} más</div>`;
     html += '</div>';
@@ -605,7 +603,47 @@ function nextMonth() {
 // ============= LIST RENDERING (simplified) =============
 function renderList() {
   const mc = document.getElementById('mainContent');
-  mc.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>Vista de lista - Publicaciones</div>';
+  const visiblePosts = [...posts]
+    .filter(p => !isSharedView || p.status === 'published')
+    .sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
+
+  let html = '<div class="list-header"><button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button></div>';
+
+  if (!visiblePosts.length) {
+    html += '<div class="empty"><div class="empty-icon">📋</div>Sin publicaciones todavía</div>';
+    mc.innerHTML = html;
+    return;
+  }
+
+  html += '<div style="display:grid;gap:10px">';
+  visiblePosts.forEach(p => {
+    const pi = posts.indexOf(p);
+    const net = p.networks[0] || 'ig';
+    const statusBadge = p.status === 'published' ? 'badge-pub' : p.status === 'scheduled' ? 'badge-sched' : 'badge-draft';
+    const title = (p.title || '').trim();
+    const caption = (p.caption || '').trim();
+    const displayText = title || caption || 'Sin título';
+    const snippet = caption && caption !== displayText ? caption : '';
+
+    html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="openModal(${pi})">
+      <div class="post-thumb">${p.emoji || '📝'}</div>
+      <div class="post-info">
+        <div class="post-caption-text">${displayText}</div>
+        <div class="post-meta">
+          <span class="badge ${statusBadge}">${p.status === 'published' ? 'Publicado' : p.status === 'scheduled' ? 'Programado' : 'Borrador'}</span>
+          ${p.ad ? '<span class="badge badge-ad">AD</span>' : ''}
+          <span class="meta-date">${formatDate(p.date)}</span>
+        </div>
+        <div class="post-note">
+          <span class="note-icon">${NET_LABELS[net] || net.toUpperCase()}</span>
+          ${snippet || 'Sin texto adicional'}
+        </div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  mc.innerHTML = html;
 }
 
 // ============= STATS RENDERING (simplified) =============
@@ -645,6 +683,7 @@ function openModal(idx, prefillDate) {
   isAd = false;
   document.querySelectorAll('.net-tag').forEach(t => t.classList.remove('selected'));
   document.querySelectorAll('.status-opt').forEach(t => { t.className = 'status-opt'; });
+  document.getElementById('postTitle').value = '';
   document.getElementById('postCaption').value = '';
   document.getElementById('postNote').value = '';
   document.getElementById('previewImgs').innerHTML = '';
@@ -655,6 +694,7 @@ function openModal(idx, prefillDate) {
     const p = posts[idx];
     document.getElementById('modalTitle').textContent = 'Editar publicación';
     document.getElementById('postDate').value = p.date.replace(' ', 'T');
+    document.getElementById('postTitle').value = p.title || '';
     document.getElementById('postCaption').value = p.caption;
     document.getElementById('postNote').value = p.note || '';
     p.networks.forEach(n => {
@@ -717,14 +757,15 @@ function handleFileUpload(input) {
 
 function savePost() {
   const date = document.getElementById('postDate').value.replace('T', ' ');
+  const title = document.getElementById('postTitle').value.trim();
   const caption = document.getElementById('postCaption').value.trim();
   const note = document.getElementById('postNote').value.trim();
   const networks = Array.from(document.querySelectorAll('.net-tag.selected')).map(t => [...t.classList].find(c => c !== 'net-tag' && c !== 'selected'));
-  if (!caption) { alert('Escribí el texto de la publicación.'); return; }
+  if (!title && !caption) { alert('Escribí un título o el texto de la publicación.'); return; }
   if (!networks.length) { alert('Seleccioná al menos una red social.'); return; }
   
   const emojis = ['📸','☕','🎉','💡','🌿','🍋','💻','✨','🎨','📅','🛍️','🔥'];
-  const post = {date, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)]};
+  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)]};
   if (editingIdx >= 0) posts[editingIdx] = post;
   else posts.push(post);
   saveAppState();
