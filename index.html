@@ -562,10 +562,31 @@ function loadAppState() {
 
 function saveAppState() {
   try {
-    localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts }));
+    // Antes de serializar, asegurarse de que ningún item tenga .data (base64 pesado)
+    // Las imágenes deben estar en IndexedDB referenciadas por imageRef
+    const safePosts = posts.map(post => {
+      if (!Array.isArray(post.media)) return post;
+      const safeMedia = post.media.map(item => {
+        if (item && item.data && item.imageRef) {
+          // Tiene ambos: sacar el data, ya está en IDB
+          const { data, ...rest } = item;
+          return rest;
+        }
+        if (item && item.data && !item.imageRef) {
+          // Imagen huérfana con base64: moverla a IDB de forma síncrona no es posible,
+          // guardar solo metadatos sin data para no explotar localStorage
+          console.warn('Imagen sin imageRef encontrada, omitiendo data para guardar:', item.name);
+          const { data, ...rest } = item;
+          return { ...rest, _dataLost: true };
+        }
+        return item;
+      });
+      return { ...post, media: safeMedia };
+    });
+    localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts: safePosts }));
   } catch (error) {
     console.error('No se pudo guardar el estado:', error);
-    alert('No se pudo guardar. Reduce la cantidad o el tamaño de archivos multimedia cargados.');
+    alert('No se pudo guardar. Error: ' + (error && error.message ? error.message : String(error)));
   }
 }
 
@@ -1488,19 +1509,12 @@ async function handleFileUpload(input) {
       if ((file.type || '').startsWith('image/')) {
         if (file.size > maxImageSize) { alert('La imagen es demasiado grande. El limite es 400 MB.'); continue; }
         const dataUrl = await compressImageFile(file);
-        let savedToIDB = false;
-        try {
-          const blob = dataURLtoBlob(dataUrl);
-          const imgId = generateMediaId('img');
-          await saveMediaToDB(imgId, blob);
-          uploadedMedia.push({ name: file.name, type: 'image/jpeg', imageRef: imgId });
-          savedToIDB = true;
-        } catch (idbErr) {
-          console.warn('IndexedDB fallo, fallback base64:', idbErr);
-        }
-        if (!savedToIDB) {
-          uploadedMedia.push({ name: file.name, type: 'image/jpeg', data: dataUrl });
-        }
+        const blob = dataURLtoBlob(dataUrl);
+        const imgId = generateMediaId('img');
+        await saveMediaToDB(imgId, blob);
+        // Guardar en memoria con imageRef + data temporal para preview
+        // (el .data se elimina en saveAppState antes de persistir)
+        uploadedMedia.push({ name: file.name, type: 'image/jpeg', imageRef: imgId, data: dataUrl });
       } else {
         const videoId = generateVideoId();
         await saveMediaToDB(videoId, file);
