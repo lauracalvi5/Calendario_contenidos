@@ -318,17 +318,22 @@
 </div>
 
 <script>
-// ============= INDEXEDDB PARA VIDEOS GRANDES =============
-const VIDEO_DB_NAME = 'contentcal_videos_v1';
-const VIDEO_DB_VER = 1;
+// ============= INDEXEDDB PARA VIDEOS E IMÁGENES =============
+const VIDEO_DB_NAME = 'contentcal_media_v2';
+const VIDEO_DB_VER = 2;
 const VIDEO_STORE_NAME = 'videos';
+const IMAGE_STORE_NAME = 'images';
 let _videoDB = null;
 
 function openVideoDB() {
   return new Promise((resolve, reject) => {
     if (_videoDB) { resolve(_videoDB); return; }
     const req = indexedDB.open(VIDEO_DB_NAME, VIDEO_DB_VER);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(VIDEO_STORE_NAME);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(VIDEO_STORE_NAME)) db.createObjectStore(VIDEO_STORE_NAME);
+      if (!db.objectStoreNames.contains(IMAGE_STORE_NAME)) db.createObjectStore(IMAGE_STORE_NAME);
+    };
     req.onsuccess = e => { _videoDB = e.target.result; resolve(_videoDB); };
     req.onerror = () => reject(req.error);
   });
@@ -360,16 +365,69 @@ async function deleteVideoFromDB(id) {
     });
   } catch {}
 }
+
+// ---- Imágenes en IndexedDB (blob, evita el límite de localStorage) ----
+async function saveImageToDB(id, blob) {
+  const db = await openVideoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IMAGE_STORE_NAME, 'readwrite');
+    tx.objectStore(IMAGE_STORE_NAME).put(blob, id);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getImageFromDB(id) {
+  const db = await openVideoDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(IMAGE_STORE_NAME, 'readonly').objectStore(IMAGE_STORE_NAME).get(id);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteImageFromDB(id) {
+  try {
+    const db = await openVideoDB();
+    await new Promise((resolve) => {
+      const tx = db.transaction(IMAGE_STORE_NAME, 'readwrite');
+      tx.objectStore(IMAGE_STORE_NAME).delete(id);
+      tx.oncomplete = resolve; tx.onerror = resolve;
+    });
+  } catch {}
+}
+const _imageObjectURLs = {};
+async function resolveImageRefs() {
+  const elements = document.querySelectorAll('[data-image-ref]');
+  for (const el of elements) {
+    const ref = el.dataset.imageRef;
+    if (!ref) continue;
+    if (_imageObjectURLs[ref]) {
+      if (el.src !== _imageObjectURLs[ref]) el.src = _imageObjectURLs[ref];
+      continue;
+    }
+    try {
+      const blob = await getImageFromDB(ref);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        _imageObjectURLs[ref] = url;
+        el.src = url;
+      }
+    } catch {}
+  }
+}
+
 function generateVideoId() {
   return 'vid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
 }
+function generateImageId() {
+  return 'img_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+}
 const _videoObjectURLs = {};
 async function loadVideosFromDB() {
+  // Resolver videos
   const elements = document.querySelectorAll('[data-video-ref]');
   for (const el of elements) {
     const ref = el.dataset.videoRef;
     if (!ref) continue;
-    // No usar el.src como guard: cuando src="", el browser lo expande a la URL base (truthy pero invalido)
     if (_videoObjectURLs[ref]) {
       if (el.src !== _videoObjectURLs[ref]) el.src = _videoObjectURLs[ref];
       continue;
@@ -385,6 +443,8 @@ async function loadVideosFromDB() {
       }
     } catch {}
   }
+  // Resolver imágenes desde IndexedDB
+  await resolveImageRefs();
 }
 function getVideoRefs(mediaList) {
   return (mediaList || []).filter(item => item && item.videoRef).map(item => item.videoRef);
@@ -1396,8 +1456,13 @@ async function handleFileUpload(input) {
           alert('La imagen es demasiado grande. El límite es 400 MB.');
           continue;
         }
-        const data = await compressImageFile(file);
-        uploadedMedia.push({ name: file.name, type: file.type || 'application/octet-stream', data });
+        // Guardar imagen en IndexedDB como blob (evita el límite de localStorage)
+        const imageId = generateImageId();
+        await saveImageToDB(imageId, file);
+        // Generar preview local temporal via object URL
+        const previewUrl = URL.createObjectURL(file);
+        _imageObjectURLs[imageId] = previewUrl;
+        uploadedMedia.push({ name: file.name, type: file.type || 'image/jpeg', imageRef: imageId });
       } else {
         // Guardar video en IndexedDB (soporta archivos grandes, ej: 4K de 400MB+)
         const videoId = generateVideoId();
