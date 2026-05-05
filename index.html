@@ -1486,25 +1486,30 @@ async function handleFileUpload(input) {
   for (const file of files) {
     try {
       if ((file.type || '').startsWith('image/')) {
-        if (file.size > maxImageSize) {
-          alert('La imagen es demasiado grande. El límite es 400 MB.');
-          continue;
-        }
-        // Comprimir imagen y guardar en IndexedDB (no en localStorage)
+        if (file.size > maxImageSize) { alert('La imagen es demasiado grande. El limite es 400 MB.'); continue; }
         const dataUrl = await compressImageFile(file);
-        const blob = dataURLtoBlob(dataUrl);
-        const imgId = generateMediaId('img');
-        await saveMediaToDB(imgId, blob);
-        uploadedMedia.push({ name: file.name, type: 'image/jpeg', imageRef: imgId });
+        let savedToIDB = false;
+        try {
+          const blob = dataURLtoBlob(dataUrl);
+          const imgId = generateMediaId('img');
+          await saveMediaToDB(imgId, blob);
+          uploadedMedia.push({ name: file.name, type: 'image/jpeg', imageRef: imgId });
+          savedToIDB = true;
+        } catch (idbErr) {
+          console.warn('IndexedDB fallo, fallback base64:', idbErr);
+        }
+        if (!savedToIDB) {
+          uploadedMedia.push({ name: file.name, type: 'image/jpeg', data: dataUrl });
+        }
       } else {
-        // Guardar video en IndexedDB (soporta archivos grandes, ej: 4K de 400MB+)
         const videoId = generateVideoId();
         await saveMediaToDB(videoId, file);
         uploadedMedia.push({ name: file.name, type: file.type || 'video/mp4', videoRef: videoId });
       }
       uploadedFileNames.push(file.name);
-    } catch {
-      alert('No se pudo cargar uno de los archivos seleccionados.');
+    } catch (err) {
+      console.error('Error cargando archivo:', err);
+      alert('No se pudo cargar "' + file.name + '". Detalle: ' + (err && err.message ? err.message : String(err)));
     }
   }
 
