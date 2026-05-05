@@ -114,7 +114,20 @@
   .upload-label { font-size: 13px; color: var(--text-2); }
   .upload-sub { font-size: 11px; color: var(--text-3); margin-top: 3px; }
   .preview-imgs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .preview-chip { font-size: 12px; background: var(--surface-2); color: var(--text); padding: 4px 10px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); display: inline-flex; align-items: center; margin-right: 6px; margin-bottom: 6px; }
   .preview-img { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-md); border: 1.5px solid var(--border); }
+  .media-block { border: 1.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: #000; margin-top: 8px; position: relative; }
+  .media-slide { display: none; }
+  .media-slide.active { display: block; }
+  .media-image, .media-video { width: 100%; max-height: 280px; object-fit: cover; display: block; }
+  .media-video { background: #000; }
+  .media-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(28,25,23,.75); color: #fff; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .media-nav.prev { left: 8px; }
+  .media-nav.next { right: 8px; }
+  .media-dots { display: flex; gap: 6px; justify-content: center; padding: 8px; background: var(--surface); }
+  .media-dot { width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--border-dark); cursor: pointer; }
+  .media-dot.active { background: var(--accent); }
+  .media-empty { font-size: 11px; color: var(--text-3); margin-top: 6px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 16px 24px 20px; border-top: 1.5px solid var(--border); }
   .btn-cancel { font-family: var(--font); font-size: 13px; font-weight: 500; padding: 8px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--surface); cursor: pointer; color: var(--text-2); transition: all 0.15s; box-shadow: var(--shadow-sm); }
   .btn-cancel:hover { border-color: var(--border-dark); color: var(--text); }
@@ -183,7 +196,7 @@
       <div class="divider"></div>
       <div style="display:flex;gap:6px;align-items:center;position:relative">
         <div class="client-select" id="clientSel" onclick="toggleClientDropdown()">
-          <span id="clientSelText" style="flex:1">Café Morado</span>
+          <span id="clientSelText" style="flex:1">Sin cliente</span>
           <span style="font-size:12px;color:var(--text-2);flex-shrink:0">▼</span>
           <div class="client-dropdown" id="clientDropdown"></div>
         </div>
@@ -225,7 +238,7 @@
   <div class="modal" style="width:450px">
     <div class="modal-header"><span class="modal-title">Generar link para compartir</span><button class="modal-close" onclick="closeShareModal()">×</button></div>
     <div class="modal-body">
-      <div class="field"><div class="field-label">Cliente</div><div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-md);color:var(--text);font-weight:500;font-size:14px;" id="shareClientName">Café Morado</div></div>
+      <div class="field"><div class="field-label">Cliente</div><div style="padding:10px 12px;background:var(--surface-2);border-radius:var(--radius-md);color:var(--text);font-weight:500;font-size:14px;" id="shareClientName">Sin cliente</div></div>
       <div class="field"><div class="field-label">Duración del link</div><select id="shareDuration" class="field-input" style="padding:8px 12px"><option value="7">7 días</option><option value="30">30 días</option><option value="90">90 días</option><option value="365">1 año</option><option value="0">Sin expiración</option></select></div>
       <div class="field" id="shareResultField" style="display:none"><div class="field-label">Tu link compartible</div><div style="display:flex;gap:8px"><input type="text" id="shareResultLink" class="field-input" readonly><button class="add-btn" style="padding:8px 14px;margin:0" onclick="copyShareLink()">Copiar</button></div></div>
     </div>
@@ -276,6 +289,7 @@ const NET_COLORS = {
   wa: {bg:'#E1F5EE', color:'#075E54'},
   li: {bg:'#E6F0FB', color:'#0C3B82'}
 };
+const DEMO_CLIENTS = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
 
 // ============= GLOBAL STATE =============
 const APP_STATE_KEY = 'contentcal_app_state_v1';
@@ -293,7 +307,7 @@ let editingClientIdx = -1;
 let sharedCode = null;
 let sharedCodes = {};
 
-const defaultClients = ['Café Morado', 'Estudio Yoga Zen', 'Ferretería López'];
+const defaultClients = [];
 const defaultPotentialClients = [];
 const defaultPosts = [];
 
@@ -335,8 +349,11 @@ function loadAppState() {
   try {
     const parsed = JSON.parse(stored);
     const storedPosts = Array.isArray(parsed.posts) ? parsed.posts.filter(post => !isSeedPost(post)) : [];
+    const storedClients = Array.isArray(parsed.clients)
+      ? parsed.clients.filter(client => !DEMO_CLIENTS.includes(client))
+      : defaultClients.slice();
     return {
-      clients: Array.isArray(parsed.clients) ? parsed.clients : defaultClients.slice(),
+      clients: storedClients,
       potentialClients: Array.isArray(parsed.potentialClients) ? parsed.potentialClients : cloneData(defaultPotentialClients),
       posts: storedPosts
     };
@@ -350,7 +367,12 @@ function loadAppState() {
 }
 
 function saveAppState() {
-  localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts }));
+  try {
+    localStorage.setItem(APP_STATE_KEY, JSON.stringify({ clients, potentialClients, posts }));
+  } catch (error) {
+    console.error('No se pudo guardar el estado:', error);
+    alert('No se pudo guardar. Reduce la cantidad o el tamaño de archivos multimedia cargados.');
+  }
 }
 
 function normalizeStatValue(value) {
@@ -423,16 +445,66 @@ let posts = initialState.posts;
 // ============= SHARED CODE FUNCTIONS =============
 function loadSharedCodes() {
   const stored = localStorage.getItem('contentcal_shared_codes');
-  if (stored) sharedCodes = JSON.parse(stored);
+  if (stored) {
+    try {
+      sharedCodes = JSON.parse(stored);
+    } catch {
+      sharedCodes = {};
+    }
+  }
 }
 
 function saveSharedCodes() {
   localStorage.setItem('contentcal_shared_codes', JSON.stringify(sharedCodes));
 }
 
+function setSharedViewUI(clientName) {
+  isSharedView = true;
+  document.getElementById('clientSelText').textContent = clientName || 'Vista compartida';
+  document.getElementById('clientSel').style.pointerEvents = 'none';
+  document.getElementById('clientSel').style.opacity = '0.6';
+  document.getElementById('shareBtn').style.display = 'none';
+
+  const deleteClientBtn = document.getElementById('deleteClientBtn');
+  if (deleteClientBtn) deleteClientBtn.style.display = 'none';
+
+  if (!document.getElementById('sharedViewInfo')) {
+    const info = document.createElement('div');
+    info.id = 'sharedViewInfo';
+    info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
+    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Ves todas las publicaciones (borrador, programado y publicado) con archivos multimedia en solo lectura.';
+    document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
+  }
+}
+
+function parseSharedPayload(encodedData) {
+  let base64 = String(encodedData || '').replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4) base64 += '=';
+
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+  const json = new TextDecoder().decode(bytes);
+  return JSON.parse(json);
+}
+
 function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
+  const dataParam = params.get('data');
   sharedCode = params.get('code');
+
+  if (dataParam) {
+    try {
+      const decoded = parseSharedPayload(dataParam);
+      posts = Array.isArray(decoded.p) ? decoded.p : [];
+      setSharedViewUI(decoded.c || 'Vista compartida');
+      return;
+    } catch (error) {
+      console.error('Error de decodificación del enlace compartido:', error);
+      alert('Error de enlace: Los datos son demasiado extensos o el formato es incompatible.');
+      return;
+    }
+  }
+
   if (sharedCode && sharedCodes[sharedCode]) {
     const codeData = sharedCodes[sharedCode];
     if (codeData.expiresAt && new Date() > new Date(codeData.expiresAt)) {
@@ -440,19 +512,13 @@ function checkSharedAccess() {
       window.location.href = window.location.pathname;
       return;
     }
-    isSharedView = true;
-    document.getElementById('clientSelText').textContent = codeData.clientName;
-    document.getElementById('clientSel').style.pointerEvents = 'none';
-    document.getElementById('clientSel').style.opacity = '0.6';
-    document.getElementById('shareBtn').style.display = 'none';
-    
-    const deleteClientBtn = document.getElementById('deleteClientBtn');
-    if (deleteClientBtn) deleteClientBtn.style.display = 'none';
-    
-    const info = document.createElement('div');
-    info.style.cssText = 'background:#E1F5EE;border:1.5px solid #7DD5BA;border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:12px;color:#085041;text-align:center;';
-    info.innerHTML = '👁️ <strong>Vista compartida</strong> — Solo ves publicaciones aprobadas. Puedes ver archivos, clientes y estadísticas. No se pueden realizar cambios.';
-    document.querySelector('.shell').insertBefore(info, document.getElementById('mainContent'));
+
+    setSharedViewUI(codeData.clientName || 'Vista compartida');
+    return;
+  }
+
+  if (sharedCode && !sharedCodes[sharedCode]) {
+    alert('El enlace compartido no existe en este navegador. Genera uno nuevo desde tu panel.');
   }
 }
 
@@ -631,7 +697,6 @@ function renderCalendar() {
     const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
     const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     let dayPosts = posts.filter(p => p.date.startsWith(dateStr));
-    if (isSharedView) { dayPosts = dayPosts.filter(p => p.status === 'published'); }
     
     html += `<div class="cal-day${isToday ? ' today' : ''}" onclick="openModal(-1,'${dateStr}')"><div class="day-num${isToday ? ' is-today' : ''}">${day}</div>`;
     dayPosts.slice(0, 3).forEach(p => {
@@ -668,7 +733,6 @@ function nextMonth() {
 function renderList() {
   const mc = document.getElementById('mainContent');
   const visiblePosts = [...posts]
-    .filter(p => !isSharedView || p.status === 'published')
     .sort((a, b) => new Date(b.date.replace(' ', 'T')) - new Date(a.date.replace(' ', 'T')));
 
   let html = `<div class="list-header">${isSharedView ? '' : '<button class="add-btn" onclick="openModal(-1)">＋ Nueva publicación</button>'}</div>`;
@@ -690,6 +754,7 @@ function renderList() {
     const snippet = caption && caption !== displayText ? caption : '';
     const fileNames = p.fileNames || [];
     const filesDisplay = fileNames.length ? `<div class="post-note"><span class="note-icon">📎</span>${fileNames.length} archivo${fileNames.length > 1 ? 's' : ''} adjuntos</div>` : '';
+    const mediaHtml = renderMedia(p, pi);
 
     html += `<div class="post-card${p.ad ? ' is-ad' : ''}" onclick="openModal(${pi})">
       <div class="post-thumb">${p.emoji || '📝'}</div>
@@ -704,6 +769,7 @@ function renderList() {
           <span class="note-icon">${NET_LABELS[net] || net.toUpperCase()}</span>
           ${snippet || 'Sin texto adicional'}
         </div>
+        ${mediaHtml}
         ${filesDisplay}
       </div>
     </div>`;
@@ -908,6 +974,7 @@ function openModal(idx, prefillDate) {
   document.getElementById('postFollowers').value = '';
   document.getElementById('previewImgs').innerHTML = '';
   uploadedFileNames = [];
+  uploadedMedia = [];
   document.getElementById('adToggleRow').classList.remove('ad-active');
   selectedStatus = 'scheduled';
   
@@ -923,18 +990,9 @@ function openModal(idx, prefillDate) {
     document.getElementById('postInquiries').value = stats.inquiries || '';
     document.getElementById('postFollowers').value = stats.followers || '';
     
-    // Recuperar y renderizar los nombres de archivos subidos
     uploadedFileNames = p.fileNames || [];
-    const prev = document.getElementById('previewImgs');
-    prev.innerHTML = '';
-    if (uploadedFileNames.length > 0) {
-      uploadedFileNames.forEach(name => {
-        const badge = document.createElement('div');
-        badge.style.cssText = 'font-size:12px;background:var(--surface-2);color:var(--text);padding:4px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;';
-        badge.textContent = '📎 ' + name;
-        prev.appendChild(badge);
-      });
-    }
+    uploadedMedia = Array.isArray(p.media) ? p.media : [];
+    renderUploadPreview(uploadedMedia, uploadedFileNames);
 
     p.networks.forEach(n => {
       document.querySelectorAll('.net-tag').forEach(t => {
@@ -1000,19 +1058,70 @@ function toggleAd() {
 }
 
 let uploadedFileNames = [];
+let uploadedMedia = [];
 
-function handleFileUpload(input) {
-  if (isSharedView) return;
+function renderUploadPreview(mediaList, fileNamesList) {
   const prev = document.getElementById('previewImgs');
   prev.innerHTML = '';
-  uploadedFileNames = [];
-  Array.from(input.files).slice(0, 4).forEach(f => {
-    uploadedFileNames.push(f.name);
-    const badge = document.createElement('div');
-    badge.style.cssText = 'font-size:12px;background:var(--surface-2);color:var(--text);padding:4px 10px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:inline-flex;align-items:center;margin-right:6px;margin-bottom:6px;';
-    badge.textContent = '📎 ' + f.name;
-    prev.appendChild(badge);
+
+  mediaList.forEach(item => {
+    if ((item.type || '').startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'preview-img';
+      img.src = item.data;
+      img.alt = item.name;
+      prev.appendChild(img);
+    } else if ((item.type || '').startsWith('video/')) {
+      const chip = document.createElement('div');
+      chip.className = 'preview-chip';
+      chip.textContent = '🎬 ' + item.name;
+      prev.appendChild(chip);
+    }
   });
+
+  fileNamesList.forEach(name => {
+    if (!mediaList.find(item => item.name === name)) {
+      const chip = document.createElement('div');
+      chip.className = 'preview-chip';
+      chip.textContent = '📎 ' + name;
+      prev.appendChild(chip);
+    }
+  });
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleFileUpload(input) {
+  if (isSharedView) return;
+
+  uploadedFileNames = [];
+  uploadedMedia = [];
+
+  const files = Array.from(input.files || []).slice(0, 4);
+  const maxFileSize = 4 * 1024 * 1024;
+
+  for (const file of files) {
+    if (file.size > maxFileSize) {
+      alert('Cada archivo debe pesar menos de 4MB para poder guardarse y compartirse correctamente.');
+      continue;
+    }
+    try {
+      const data = await readFileAsDataURL(file);
+      uploadedMedia.push({ name: file.name, type: file.type || 'application/octet-stream', data });
+      uploadedFileNames.push(file.name);
+    } catch {
+      alert('No se pudo cargar uno de los archivos seleccionados.');
+    }
+  }
+
+  renderUploadPreview(uploadedMedia, uploadedFileNames);
 }
 
 function exportClientsToExcel() {
@@ -1053,7 +1162,19 @@ function savePost() {
   if (!networks.length) { alert('Seleccioná al menos una red social.'); return; }
   
   const emojis = ['📸','☕','🎉','💡','🌿','🍋','💻','✨','🎨','📅','🛍️','🔥'];
-  const post = {date, title, networks, caption, status: selectedStatus, note, ad: isAd, emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)], stats: {reach, inquiries, followers}, fileNames: uploadedFileNames};
+  const post = {
+    date,
+    title,
+    networks,
+    caption,
+    status: selectedStatus,
+    note,
+    ad: isAd,
+    emoji: editingIdx >= 0 ? posts[editingIdx].emoji : emojis[Math.floor(Math.random() * emojis.length)],
+    stats: {reach, inquiries, followers},
+    fileNames: uploadedFileNames,
+    media: uploadedMedia
+  };
   if (editingIdx >= 0) posts[editingIdx] = post;
   else posts.push(post);
   saveAppState();
@@ -1072,112 +1193,82 @@ function closeShareModal(e) {
   document.getElementById('shareModalOverlay').classList.remove('open');
 }
 
+function copyShareLink() {
+  const input = document.getElementById('shareResultLink');
+  if (!input || !input.value) return;
+  navigator.clipboard.writeText(input.value)
+    .then(() => alert('Enlace copiado al portapapeles.'))
+    .catch(() => {
+      input.select();
+      document.execCommand('copy');
+      alert('Enlace copiado al portapapeles.');
+    });
+}
+
 async function generateShareCode() {
   const clientName = document.getElementById('clientSelText').textContent;
-  
-  // FILTRO: Solo enviamos los posts del mes actual para no saturar la URL
-  const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-  const filteredPosts = posts.filter(p => p.date.startsWith(currentMonthKey));
 
-  const payload = {
-    c: clientName,
-    p: filteredPosts, // Enviamos solo una parte
-    v: "1.1" // Versión de protocolo
+  if (!clientName || clientName === 'Sin cliente') {
+    alert('Selecciona un cliente antes de generar el enlace compartido.');
+    return;
+  }
+
+  const existingCode = Object.entries(sharedCodes).find(([, item]) => item.clientName === clientName)?.[0];
+  const code = existingCode || Math.random().toString(36).slice(2, 10);
+  sharedCodes[code] = {
+    clientName,
+    createdAt: new Date().toISOString()
   };
+  saveSharedCodes();
 
-  try {
-    const jsonStr = JSON.stringify(payload);
-    let encoded = btoa(unescape(encodeURIComponent(jsonStr)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, ''); 
-
-    const shareLink = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
-    
-    // Validación de seguridad para vos como ingeniera:
-    if (shareLink.length > 2000) {
-        alert("¡Cuidado! El link es muy largo (" + shareLink.length + " carac.). Es probable que no funcione en todos los navegadores.");
-    }
-
-    document.getElementById('shareResultLink').value = shareLink;
-    document.getElementById('shareResultField').style.display = 'block';
-  } catch (e) {
-    console.error(e);
-    alert("Error al comprimir los datos.");
-  }
+  const shareLink = `${window.location.origin}${window.location.pathname}?code=${code}`;
+  document.getElementById('shareResultLink').value = shareLink;
+  document.getElementById('shareResultField').style.display = 'block';
 }
-// 2. Modificamos el Render para que muestre la imagen grande
-function renderMedia(post) {
-  // Si no hay archivos, no mostramos nada
-  if (!post.fileNames || post.fileNames.length === 0) return '<div class="no-media">Sin vista previa</div>';
+function setMediaSlide(carouselId, index) {
+  const root = document.getElementById(carouselId);
+  if (!root) return;
 
-  // Si es un video (asumiendo por extensión o tipo)
-  if (post.fileNames[0].includes('.mp4')) {
-    return `<video controls class="post-video">
-              <source src="${post.fileNames[0]}" type="video/mp4">
-            </video>`;
-  }
+  const slides = root.querySelectorAll('.media-slide');
+  const dots = root.parentElement ? root.parentElement.querySelectorAll('.media-dot') : [];
+  if (!slides.length) return;
 
-  // Si son imágenes (Carrusel)
-  let imagesHTML = post.fileNames.map((file, index) => `
-    <div class="carousel-item ${index === 0 ? 'active' : ''}">
-      <img src="${file}" class="d-block w-100" alt="Vista previa">
-    </div>
-  `).join('');
+  const nextIndex = (index + slides.length) % slides.length;
+  root.dataset.active = String(nextIndex);
 
-  return `
-    <div class="carousel slide" data-bs-ride="carousel">
-      <div class="carousel-inner">
-        ${imagesHTML}
-      </div>
-    </div>`;
+  slides.forEach((slide, i) => slide.classList.toggle('active', i === nextIndex));
+  dots.forEach((dot, i) => dot.classList.toggle('active', i === nextIndex));
 }
-function checkSharedAccess() {
-  const params = new URLSearchParams(window.location.search);
-  let shareData = params.get('data');
-  
-  if (!shareData) return;
 
-  try {
-    // 1. Restaurar el formato Base64 estándar
-    shareData = shareData.replace(/-/g, '+').replace(/_/g, '/');
-    while (shareData.length % 4) {
-      shareData += '=';
+function shiftMedia(carouselId, step) {
+  const root = document.getElementById(carouselId);
+  if (!root) return;
+  const active = Number.parseInt(root.dataset.active || '0', 10);
+  setMediaSlide(carouselId, active + step);
+}
+
+function renderMedia(post, postIndex) {
+  const media = Array.isArray(post.media) ? post.media : [];
+  if (!media.length) return '<div class="media-empty">Sin vista previa</div>';
+
+  const carouselId = `media-${postIndex}`;
+  const slides = media.map((item, index) => {
+    const active = index === 0 ? ' active' : '';
+    if ((item.type || '').startsWith('video/')) {
+      return `<div class="media-slide${active}"><video class="media-video" controls preload="metadata" src="${item.data}"></video></div>`;
     }
+    return `<div class="media-slide${active}"><img class="media-image" src="${item.data}" alt="${item.name || 'Vista previa'}"></div>`;
+  }).join('');
 
-    // 2. Decodificar
-    const decoded = JSON.parse(decodeURIComponent(escape(atob(shareData))));
-    
-    // 3. Cargar datos
-    isSharedView = true;
-    posts = decoded.p || [];
-    // IMPORTANTE: Esto refresca la pantalla con los datos del link
-    if (typeof renderPosts === 'function') {
-    renderPosts(); 
-    } else {
-      // Si no tenés una función renderPosts, llamá a la que uses para dibujar la lista
-      actualizarVistaPublicaciones(); 
-    }
-    // Usamos un pequeño delay para asegurar que el DOM de Sabium cargó
-    setTimeout(() => {
-      const clientLabel = document.getElementById('clientSelText');
-      if (clientLabel) clientLabel.textContent = decoded.c;
-      
-      // Ocultar herramientas de edición
-      const controls = ['shareBtn', 'addPostBtn', 'clientSel'];
-      controls.forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.style.display = 'none';
-      });
+  const nav = media.length > 1
+    ? `<button class="media-nav prev" onclick="event.stopPropagation();shiftMedia('${carouselId}', -1)">‹</button><button class="media-nav next" onclick="event.stopPropagation();shiftMedia('${carouselId}', 1)">›</button>`
+    : '';
 
-      if (typeof renderPosts === 'function') renderPosts();
-    }, 100);
+  const dots = media.length > 1
+    ? `<div class="media-dots">${media.map((_, index) => `<button class="media-dot${index === 0 ? ' active' : ''}" onclick="event.stopPropagation();setMediaSlide('${carouselId}', ${index})"></button>`).join('')}</div>`
+    : '';
 
-  } catch (e) {
-    console.error("Error crítico de decodificación:", e);
-    // Si falla, mostramos un mensaje más técnico para ayudarte a debugear
-    alert("Error de enlace: Los datos son demasiado extensos o el formato es incompatible.");
-  }
+  return `<div><div class="media-block" id="${carouselId}" data-active="0">${slides}${nav}</div>${dots}</div>`;
 }
 // ============= INITIALIZATION =============
 function initEventListeners() {
