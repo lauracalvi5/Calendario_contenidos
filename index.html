@@ -53,7 +53,7 @@
   .add-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; background: var(--border); border: 1.5px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-md); }
   .cal-day-header { background: var(--surface-2); padding: 12px 6px; text-align: center; font-size: 13px; font-weight: 700; color: var(--text-3); letter-spacing: 0.5px; text-transform: uppercase; }
-  .cal-day { background: var(--surface); padding: 8px 7px; min-height: 160px; cursor: pointer; transition: background 0.12s; position: relative; }
+  .cal-day { background: var(--surface); padding: 8px 7px; height: 160px; min-height: unset; cursor: pointer; transition: background 0.12s; position: relative; overflow: hidden; }
   .cal-day:hover { background: #FDFCFF; }
   .cal-day.other-month { background: var(--bg); opacity: 0.6; }
   .cal-day.today { background: var(--accent-light); }
@@ -871,7 +871,7 @@ function renderCalendar() {
       const pi = posts.indexOf(p);
       const net = p.networks[0] || 'ig';
       const dotCls = p.status === 'published' ? 'dot-published' : p.status === 'scheduled' ? 'dot-scheduled' : 'dot-draft';
-      const pillTitle = (p.title || 'Sin título').trim().slice(0, 38);
+      const pillTitle = (p.title || 'Sin título').trim().slice(0, 20);
       const typeLabel = p.type ? ({imagen:'Imagen', carrusel:'Carrusel', reel:'Reel', historia:'Historia'}[p.type] || p.type) : '';
       const typeTag = typeLabel ? `<span style="font-size:10px;font-weight:700;opacity:.82;letter-spacing:.2px;text-transform:uppercase">${typeLabel}</span>` : '';
       const commentBadge = (!isSharedView && getUnreadCommentCount(p)) ? `<span class="comment-badge">${getUnreadCommentCount(p)}</span>` : '';
