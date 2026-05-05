@@ -457,9 +457,7 @@ async function migrateInlineImagesToIndexedDB() {
     for (const item of post.media) {
       if (item && item.data && (item.type || '').startsWith('image/') && !item.imageRef) {
         try {
-          // Convertir dataURL a Blob
-          const res = await fetch(item.data);
-          const blob = await res.blob();
+          const blob = dataURLtoBlob(item.data);
           const ref = generateMediaId('img');
           await saveMediaToDB(ref, blob);
           item.imageRef = ref;
@@ -1458,6 +1456,15 @@ function compressImageFile(file, maxSize = 1280, quality = 0.78) {
   });
 }
 
+function dataURLtoBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 async function handleFileUpload(input) {
   if (isSharedView) return;
 
@@ -1485,8 +1492,7 @@ async function handleFileUpload(input) {
         }
         // Comprimir imagen y guardar en IndexedDB (no en localStorage)
         const dataUrl = await compressImageFile(file);
-        const res = await fetch(dataUrl);
-        const blob = await res.blob();
+        const blob = dataURLtoBlob(dataUrl);
         const imgId = generateMediaId('img');
         await saveMediaToDB(imgId, blob);
         uploadedMedia.push({ name: file.name, type: 'image/jpeg', imageRef: imgId });
