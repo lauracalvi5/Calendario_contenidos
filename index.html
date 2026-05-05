@@ -318,76 +318,158 @@
 </div>
 
 <script>
-// ============= INDEXEDDB PARA VIDEOS GRANDES =============
-const VIDEO_DB_NAME = 'contentcal_videos_v1';
-const VIDEO_DB_VER = 1;
-const VIDEO_STORE_NAME = 'videos';
-let _videoDB = null;
+// ============= INDEXEDDB PARA ARCHIVOS MULTIMEDIA (imágenes y videos) =============
+const MEDIA_DB_NAME = 'contentcal_media_v2';
+const MEDIA_DB_VER = 1;
+const MEDIA_STORE_NAME = 'media';
+let _mediaDB = null;
 
-function openVideoDB() {
+function openMediaDB() {
   return new Promise((resolve, reject) => {
-    if (_videoDB) { resolve(_videoDB); return; }
-    const req = indexedDB.open(VIDEO_DB_NAME, VIDEO_DB_VER);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(VIDEO_STORE_NAME);
-    req.onsuccess = e => { _videoDB = e.target.result; resolve(_videoDB); };
+    if (_mediaDB) { resolve(_mediaDB); return; }
+    // Intentar migrar datos de la DB de videos antigua
+    const req = indexedDB.open(MEDIA_DB_NAME, MEDIA_DB_VER);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(MEDIA_STORE_NAME);
+    req.onsuccess = e => { _mediaDB = e.target.result; resolve(_mediaDB); };
     req.onerror = () => reject(req.error);
   });
 }
-async function saveVideoToDB(id, blob) {
-  const db = await openVideoDB();
+async function saveMediaToDB(id, data) {
+  const db = await openMediaDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(VIDEO_STORE_NAME, 'readwrite');
-    tx.objectStore(VIDEO_STORE_NAME).put(blob, id);
+    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+    tx.objectStore(MEDIA_STORE_NAME).put(data, id);
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
   });
 }
-async function getVideoFromDB(id) {
-  const db = await openVideoDB();
+async function getMediaFromDB(id) {
+  const db = await openMediaDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(VIDEO_STORE_NAME, 'readonly').objectStore(VIDEO_STORE_NAME).get(id);
+    const req = db.transaction(MEDIA_STORE_NAME, 'readonly').objectStore(MEDIA_STORE_NAME).get(id);
     req.onsuccess = () => resolve(req.result || null);
     req.onerror = () => reject(req.error);
   });
 }
-async function deleteVideoFromDB(id) {
+async function deleteMediaFromDB(id) {
   try {
-    const db = await openVideoDB();
+    const db = await openMediaDB();
     await new Promise((resolve) => {
-      const tx = db.transaction(VIDEO_STORE_NAME, 'readwrite');
-      tx.objectStore(VIDEO_STORE_NAME).delete(id);
+      const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+      tx.objectStore(MEDIA_STORE_NAME).delete(id);
       tx.oncomplete = resolve; tx.onerror = resolve;
     });
   } catch {}
 }
-function generateVideoId() {
-  return 'vid_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+// Compatibilidad con la DB antigua de videos
+async function getVideoFromOldDB(id) {
+  return new Promise((resolve) => {
+    try {
+      const req = indexedDB.open('contentcal_videos_v1', 1);
+      req.onsuccess = e => {
+        try {
+          const db = e.target.result;
+          const tx = db.transaction('videos', 'readonly');
+          const get = tx.objectStore('videos').get(id);
+          get.onsuccess = () => resolve(get.result || null);
+          get.onerror = () => resolve(null);
+        } catch { resolve(null); }
+      };
+      req.onerror = () => resolve(null);
+    } catch { resolve(null); }
+  });
 }
-const _videoObjectURLs = {};
+function generateMediaId(prefix = 'media') {
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+}
+// Alias para compatibilidad
+const generateVideoId = () => generateMediaId('vid');
+
+const _mediaObjectURLs = {};
+
+async function resolveMediaRef(ref, isVideo = false) {
+  if (_mediaObjectURLs[ref]) return _mediaObjectURLs[ref];
+  // Buscar en la nueva DB
+  let data = await getMediaFromDB(ref);
+  // Si no está, buscar en la DB antigua de videos
+  if (!data && isVideo) data = await getVideoFromOldDB(ref);
+  if (!data) return null;
+  const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data]));
+  _mediaObjectURLs[ref] = url;
+  return url;
+}
+
 async function loadVideosFromDB() {
   const elements = document.querySelectorAll('[data-video-ref]');
   for (const el of elements) {
     const ref = el.dataset.videoRef;
     if (!ref) continue;
-    // No usar el.src como guard: cuando src="", el browser lo expande a la URL base (truthy pero invalido)
-    if (_videoObjectURLs[ref]) {
-      if (el.src !== _videoObjectURLs[ref]) el.src = _videoObjectURLs[ref];
-      continue;
-    }
     try {
-      const blob = await getVideoFromDB(ref);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        _videoObjectURLs[ref] = url;
-        el.src = url;
+      const url = await resolveMediaRef(ref, true);
+      if (url) {
+        if (el.src !== url) el.src = url;
       } else {
         el.parentElement.innerHTML = '<div style="color:#A09890;font-size:12px;padding:16px;text-align:center">Video no disponible en este navegador</div>';
       }
     } catch {}
   }
 }
+
+async function loadImagesFromDB() {
+  const elements = document.querySelectorAll('[data-image-ref]');
+  for (const el of elements) {
+    const ref = el.dataset.imageRef;
+    if (!ref) continue;
+    try {
+      const url = await resolveMediaRef(ref, false);
+      if (url) {
+        if (el.src !== url) el.src = url;
+      } else {
+        el.style.display = 'none';
+      }
+    } catch {}
+  }
+}
+
+async function loadAllMediaFromDB() {
+  await Promise.all([loadVideosFromDB(), loadImagesFromDB()]);
+}
+
+function getMediaRefs(mediaList) {
+  return (mediaList || []).flatMap(item => {
+    if (!item) return [];
+    const refs = [];
+    if (item.videoRef) refs.push(item.videoRef);
+    if (item.imageRef) refs.push(item.imageRef);
+    return refs;
+  });
+}
+// Alias para compatibilidad
 function getVideoRefs(mediaList) {
   return (mediaList || []).filter(item => item && item.videoRef).map(item => item.videoRef);
+}
+
+// Migración: posts con imágenes guardadas como base64 en localStorage → moverlas a IndexedDB
+async function migrateInlineImagesToIndexedDB() {
+  let migrated = false;
+  for (const post of posts) {
+    if (!Array.isArray(post.media)) continue;
+    for (const item of post.media) {
+      if (item && item.data && (item.type || '').startsWith('image/') && !item.imageRef) {
+        try {
+          // Convertir dataURL a Blob
+          const res = await fetch(item.data);
+          const blob = await res.blob();
+          const ref = generateMediaId('img');
+          await saveMediaToDB(ref, blob);
+          item.imageRef = ref;
+          delete item.data;
+          migrated = true;
+        } catch {}
+      }
+    }
+  }
+  if (migrated) saveAppState();
 }
 
 // ============= CONSTANTS & DATA =============
@@ -822,7 +904,7 @@ function deletePost() {
   if (editingIdx < 0 || isSharedView) return;
   if (!confirm('¿Borrar esta publicación? Esta acción no se puede deshacer.')) return;
   const post = posts[editingIdx];
-  getVideoRefs(post?.media).forEach(ref => deleteVideoFromDB(ref));
+  getMediaRefs(post?.media).forEach(ref => deleteMediaFromDB(ref));
   posts.splice(editingIdx, 1);
   editingIdx = -1;
   saveAppState();
@@ -976,7 +1058,7 @@ function renderList() {
   html += '</div>';
 
   mc.innerHTML = html;
-  loadVideosFromDB();
+  loadAllMediaFromDB();
 }
 
 // ============= STATS RENDERING =============
@@ -1289,18 +1371,23 @@ function renderUploadPreview(mediaList, fileNamesList) {
   prev.innerHTML = '';
 
   mediaList.forEach((item, index) => {
-    if ((item.type || '').startsWith('image/')) {
+    if ((item.type || '').startsWith('image/') || item.imageRef) {
       const img = document.createElement('img');
       img.className = 'preview-img';
-      img.src = item.data;
       img.alt = item.name;
       img.style.cursor = 'pointer';
       img.title = 'Ver en grande';
       img.addEventListener('click', () => {
         if (editingIdx >= 0) openFullscreenMedia(editingIdx, index);
       });
+      if (item.data) {
+        img.src = item.data;
+      } else if (item.imageRef) {
+        img.dataset.imageRef = item.imageRef;
+        resolveMediaRef(item.imageRef, false).then(url => { if (url) img.src = url; });
+      }
       prev.appendChild(img);
-    } else if ((item.type || '').startsWith('video/')) {
+    } else if ((item.type || '').startsWith('video/') || item.videoRef) {
       const chip = document.createElement('div');
       chip.className = 'preview-chip';
       chip.textContent = '🎬 ' + item.name;
@@ -1396,12 +1483,17 @@ async function handleFileUpload(input) {
           alert('La imagen es demasiado grande. El límite es 400 MB.');
           continue;
         }
-        const data = await compressImageFile(file);
-        uploadedMedia.push({ name: file.name, type: file.type || 'application/octet-stream', data });
+        // Comprimir imagen y guardar en IndexedDB (no en localStorage)
+        const dataUrl = await compressImageFile(file);
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        const imgId = generateMediaId('img');
+        await saveMediaToDB(imgId, blob);
+        uploadedMedia.push({ name: file.name, type: 'image/jpeg', imageRef: imgId });
       } else {
         // Guardar video en IndexedDB (soporta archivos grandes, ej: 4K de 400MB+)
         const videoId = generateVideoId();
-        await saveVideoToDB(videoId, file);
+        await saveMediaToDB(videoId, file);
         uploadedMedia.push({ name: file.name, type: file.type || 'video/mp4', videoRef: videoId });
       }
       uploadedFileNames.push(file.name);
@@ -1717,7 +1809,7 @@ function renderFullscreenCarousel() {
       const videoRef = item.videoRef ? `data-video-ref="${item.videoRef}"` : '';
       return `<div class="fullscreen-slide${active}"><video class="fullscreen-video" controls src="${videoSrc}" ${videoRef}></video></div>`;
     }
-    return `<div class="fullscreen-slide${active}"><img class="fullscreen-image" src="${item.data}" alt="${item.name || 'Imagen'}"></div>`;
+    return `<div class="fullscreen-slide${active}"><img class="fullscreen-image" ${item.data ? `src="${item.data}"` : `data-image-ref="${item.imageRef || ''}"`} alt="${item.name || 'Imagen'}"></div>`;
   }).join('');
   
   // Render dots
@@ -1727,7 +1819,7 @@ function renderFullscreenCarousel() {
   
   // Render counter
   counterDiv.textContent = media.length > 1 ? `${currentFullscreenSlideIndex + 1} / ${media.length}` : '';
-  loadVideosFromDB();
+  loadAllMediaFromDB();
 }
 
 function setFullscreenSlide(index) {
@@ -1755,7 +1847,7 @@ function renderMedia(post, postIndex) {
         </div>
       </div>`;
     }
-    return `<div class="media-slide${active}"><img class="media-image" onclick="event.stopPropagation();openFullscreenMedia(${postIndex}, ${index})" src="${item.data}" alt="${item.name || 'Vista previa'}" style="cursor:pointer"></div>`;
+    return `<div class="media-slide${active}"><img class="media-image" onclick="event.stopPropagation();openFullscreenMedia(${postIndex}, ${index})" ${item.data ? `src="${item.data}"` : `data-image-ref="${item.imageRef || ''}"`} alt="${item.name || 'Vista previa'}" style="cursor:pointer"></div>`;
   }).join('');
 
   const nav = media.length > 1
@@ -1785,6 +1877,8 @@ loadSharedCodes();
 checkSharedAccess();
 updateClientSelect();
 initEventListeners();
+// Migrar imágenes antiguas (base64 en localStorage) a IndexedDB en segundo plano
+migrateInlineImagesToIndexedDB().then(() => renderCalendar());
 renderCalendar();
 </script>
 </body>
