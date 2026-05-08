@@ -3,8 +3,8 @@ services:
     name: contentcal-backend
     env: node
     plan: free
-    buildCommand: cd calendario-backend && npm install
-    startCommand: cd calendario-backend && node server.js
+    buildCommand: npm --prefix backend install
+    startCommand: npm --prefix backend start
     envVars:
       - key: MONGODB_URI
         scope: run
