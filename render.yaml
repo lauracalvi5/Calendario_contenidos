@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: contentcal-backend
+    env: node
+    plan: free
+    buildCommand: cd calendario-backend && npm install
+    startCommand: cd calendario-backend && node server.js
+    envVars:
+      - key: MONGODB_URI
+        scope: run
+        value: mongodb+srv://username:password@cluster.mongodb.net/calendario
+      - key: NODE_ENV
+        value: production

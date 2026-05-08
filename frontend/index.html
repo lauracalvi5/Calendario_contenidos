@@ -317,6 +317,7 @@
   </div>
 </div>
 
+<script src="calendar-api.js"></script>
 <script>
 // ============= INDEXEDDB PARA ARCHIVOS MULTIMEDIA (imágenes y videos) =============
 const MEDIA_DB_NAME = 'contentcal_media_v2';
@@ -485,6 +486,9 @@ const SELECTED_CLIENT_KEY = 'contentcal_selected_client_v1';
 
 // ============= GLOBAL STATE =============
 const APP_STATE_KEY = 'contentcal_app_state_v1';
+let backendAvailable = false;
+let backendClients = [];
+let clientIdByName = {};
 let currentView = 'calendar';
 let currentYear = 2026;
 let currentMonth = 4;
@@ -532,6 +536,13 @@ function cloneData(data) {
 }
 
 function loadAppState() {
+  if (backendAvailable) {
+    return {
+      clients: defaultClients.slice(),
+      potentialClients: cloneData(defaultPotentialClients),
+      posts: cloneData(defaultPosts)
+    };
+  }
   const stored = localStorage.getItem(APP_STATE_KEY);
   if (!stored) {
     return {
@@ -561,6 +572,7 @@ function loadAppState() {
 }
 
 function saveAppState() {
+  if (backendAvailable) return;
   try {
     // Antes de serializar, asegurarse de que ningún item tenga .data (base64 pesado)
     // Las imágenes deben estar en IndexedDB referenciadas por imageRef
@@ -596,6 +608,140 @@ function loadSelectedClient() {
 
 function saveSelectedClient(name) {
   localStorage.setItem(SELECTED_CLIENT_KEY, name || '');
+}
+
+function formatDateForUI(dateValue) {
+  const d = new Date(dateValue);
+  if (!Number.isFinite(d.getTime())) return String(dateValue || '');
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+function toBackendDate(uiDate) {
+  const normalized = String(uiDate || '').replace(' ', 'T');
+  const parsed = new Date(normalized);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : new Date().toISOString();
+}
+
+function getClientIdByName(name) {
+  return clientIdByName[name] || '';
+}
+
+function mapBackendPostToUI(post, clientName) {
+  return {
+    _id: post._id,
+    date: formatDateForUI(post.date),
+    title: post.title || '',
+    networks: Array.isArray(post.networks) ? post.networks : [],
+    caption: post.caption || '',
+    type: post.postType || 'imagen',
+    status: post.status || 'draft',
+    note: post.note || '',
+    ad: !!post.isAd,
+    emoji: post.emoji || '📝',
+    clientName,
+    stats: {
+      reach: normalizeStatValue(post.stats?.reach),
+      inquiries: normalizeStatValue(post.stats?.inquiries),
+      followers: normalizeStatValue(post.stats?.followers)
+    },
+    fileNames: Array.isArray(post.fileNames) ? post.fileNames : [],
+    media: Array.isArray(post.media) ? post.media : [],
+    comments: Array.isArray(post.comments)
+      ? post.comments.map(comment => ({
+          id: comment.id,
+          author: comment.author,
+          text: comment.text,
+          date: comment.createdAt || comment.date || new Date().toISOString()
+        }))
+      : [],
+    unreadComments: Number.parseInt(post.unreadComments || 0, 10) || 0
+  };
+}
+
+function mapUIPostToBackend(post, clientId) {
+  const comments = Array.isArray(post.comments)
+    ? post.comments.map(comment => ({
+        id: comment.id || String(Date.now()),
+        author: comment.author || 'cliente',
+        text: comment.text || '',
+        createdAt: comment.date || comment.createdAt || new Date().toISOString()
+      }))
+    : [];
+
+  return {
+    clientId,
+    title: post.title || '',
+    caption: post.caption || '',
+    date: toBackendDate(post.date),
+    networks: Array.isArray(post.networks) ? post.networks : [],
+    status: post.status || 'draft',
+    isAd: !!post.ad,
+    postType: post.type || 'imagen',
+    note: post.note || '',
+    emoji: post.emoji || '📝',
+    unreadComments: Number.parseInt(post.unreadComments || 0, 10) || 0,
+    stats: {
+      reach: normalizeStatValue(post.stats?.reach),
+      inquiries: normalizeStatValue(post.stats?.inquiries),
+      followers: normalizeStatValue(post.stats?.followers)
+    },
+    fileNames: Array.isArray(post.fileNames) ? post.fileNames : [],
+    media: Array.isArray(post.media) ? post.media : [],
+    comments
+  };
+}
+
+async function refreshBackendClients() {
+  const docs = await api.getClients();
+  backendClients = Array.isArray(docs) ? docs : [];
+  clientIdByName = {};
+  clients = backendClients.map(client => client.name).filter(Boolean);
+  backendClients.forEach(client => {
+    if (client.name) clientIdByName[client.name] = client._id;
+  });
+}
+
+function getBackendClientByName(name) {
+  return backendClients.find(client => client.name === name) || null;
+}
+
+async function loadClientDataFromBackend(clientName) {
+  const clientDoc = getBackendClientByName(clientName);
+  if (!clientDoc?._id) {
+    posts = [];
+    potentialClients = [];
+    return;
+  }
+
+  const dbPosts = await api.getPostsByClient(clientDoc._id);
+  posts = Array.isArray(dbPosts) ? dbPosts.map(post => mapBackendPostToUI(post, clientName)) : [];
+  potentialClients = Array.isArray(clientDoc.potentialClients)
+    ? clientDoc.potentialClients.map(item => ({
+        id: item.id,
+        name: item.name,
+        phone: item.phone,
+        status: item.status || 'consulta',
+        notes: item.notes || '',
+        date: item.createdAt ? String(item.createdAt).slice(0, 10) : new Date().toISOString().slice(0, 10)
+      }))
+    : [];
+}
+
+async function detectBackendAvailability() {
+  if (typeof api === 'undefined' || !api) return false;
+  try {
+    const baseUrl = (api.baseUrl || '').replace(/\/$/, '');
+    const rootUrl = baseUrl.endsWith('/api') ? baseUrl.slice(0, -4) : baseUrl;
+    const response = await fetch(`${rootUrl}/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeStatValue(value) {
@@ -697,6 +843,7 @@ function getScopedPosts() {
 
 // ============= SHARED CODE FUNCTIONS =============
 function loadSharedCodes() {
+  if (backendAvailable) return;
   const stored = localStorage.getItem('contentcal_shared_codes');
   if (stored) {
     try {
@@ -708,6 +855,7 @@ function loadSharedCodes() {
 }
 
 function saveSharedCodes() {
+  if (backendAvailable) return;
   localStorage.setItem('contentcal_shared_codes', JSON.stringify(sharedCodes));
 }
 
@@ -740,7 +888,7 @@ function parseSharedPayload(encodedData) {
   return JSON.parse(json);
 }
 
-function checkSharedAccess() {
+async function checkSharedAccess() {
   const params = new URLSearchParams(window.location.search);
   const dataParam = params.get('data');
   sharedCode = params.get('code');
@@ -750,11 +898,38 @@ function checkSharedAccess() {
       const decoded = parseSharedPayload(dataParam);
       posts = Array.isArray(decoded.p) ? decoded.p : [];
       setSharedViewUI(decoded.c || 'Vista compartida');
-      return;
+      return true;
     } catch (error) {
       console.error('Error de decodificación del enlace compartido:', error);
       alert('Error de enlace: Los datos son demasiado extensos o el formato es incompatible.');
-      return;
+      return false;
+    }
+  }
+
+  if (backendAvailable && sharedCode) {
+    try {
+      const validation = await api.validateShareCode(sharedCode);
+      const clientDoc = await api.getClient(validation.clientId);
+      const clientName = clientDoc?.name || 'Vista compartida';
+      const dbPosts = await api.getPostsByClient(validation.clientId);
+      posts = Array.isArray(dbPosts) ? dbPosts.map(post => mapBackendPostToUI(post, clientName)) : [];
+      potentialClients = Array.isArray(clientDoc?.potentialClients)
+        ? clientDoc.potentialClients.map(item => ({
+            id: item.id,
+            name: item.name,
+            phone: item.phone,
+            status: item.status || 'consulta',
+            notes: item.notes || '',
+            date: item.createdAt ? String(item.createdAt).slice(0, 10) : new Date().toISOString().slice(0, 10)
+          }))
+        : [];
+      setSharedViewUI(clientName);
+      return true;
+    } catch (error) {
+      console.error('Error validando enlace compartido en backend:', error);
+      alert('El enlace compartido no es válido o ya expiró.');
+      window.location.href = window.location.pathname;
+      return false;
     }
   }
 
@@ -767,12 +942,13 @@ function checkSharedAccess() {
     }
 
     setSharedViewUI(codeData.clientName || 'Vista compartida');
-    return;
+    return true;
   }
 
   if (sharedCode && !sharedCodes[sharedCode]) {
     alert('El enlace compartido no existe en este navegador. Genera uno nuevo desde tu panel.');
   }
+  return false;
 }
 
 // ============= CLIENT DROPDOWN =============
@@ -789,12 +965,21 @@ function updateClientSelect() {
   ).join('') + `<div class="client-option add-client" onclick="addClientPrompt()">＋ Agregar cliente</div>`;
 }
 
-function selectClient(name) {
+async function selectClient(name) {
   selectedClientName = name;
   saveSelectedClient(name);
   document.getElementById('clientSelText').textContent = name;
   document.getElementById('clientSel').classList.remove('open');
   document.getElementById('clientDropdown').classList.remove('show');
+  if (backendAvailable) {
+    try {
+      await loadClientDataFromBackend(name);
+    } catch (error) {
+      console.error('No se pudo cargar la data del cliente:', error);
+      posts = [];
+      potentialClients = [];
+    }
+  }
   renderView();
 }
 
@@ -827,15 +1012,29 @@ function closeDeleteClientModal(e) {
   document.getElementById('deleteClientModalOverlay').classList.remove('open');
 }
 
-function deleteClient() {
+async function deleteClient() {
   const toDelete = document.getElementById('deleteClientSel').value;
   const idx = clients.indexOf(toDelete);
   if (idx > -1) {
+    if (backendAvailable) {
+      try {
+        const clientId = getClientIdByName(toDelete);
+        if (clientId) await api.deleteClient(clientId);
+      } catch (error) {
+        alert('No se pudo borrar el cliente en el servidor.');
+        console.error(error);
+        return;
+      }
+    }
     clients.splice(idx, 1);
     posts = posts.filter(post => post.clientName !== toDelete);
     if (selectedClientName === toDelete) {
       selectedClientName = clients[0] || '';
       saveSelectedClient(selectedClientName);
+    }
+    if (backendAvailable) {
+      await refreshBackendClients();
+      if (selectedClientName) await loadClientDataFromBackend(selectedClientName);
     }
     updateClientSelect();
     saveAppState();
@@ -855,14 +1054,26 @@ function closeAddClientModal(e) {
   document.getElementById('addClientModalOverlay').classList.remove('open');
 }
 
-function saveNewClient() {
+async function saveNewClient() {
   const name = document.getElementById('newClientName').value.trim();
   const notes = document.getElementById('newClientNotes').value.trim();
   if (!name) { alert('El nombre es requerido'); return; }
   if (clients.includes(name)) { alert('Ese cliente ya existe.'); return; }
-  clients.push(name);
+
+  if (backendAvailable) {
+    try {
+      await api.createClient({ name, notes });
+      await refreshBackendClients();
+    } catch (error) {
+      alert('No se pudo crear el cliente en el servidor.');
+      console.error(error);
+      return;
+    }
+  }
+
+  if (!backendAvailable) clients.push(name);
   updateClientSelect();
-  selectClient(name);
+  await selectClient(name);
   saveAppState();
   closeAddClientModal();
 }
@@ -892,37 +1103,94 @@ function closeClientModal(e) {
   document.getElementById('clientModalOverlay').classList.remove('open');
 }
 
-function saveClient() {
+async function saveClient() {
   const name = document.getElementById('clientName').value.trim();
   const phone = document.getElementById('clientPhone').value.trim();
   const status = document.getElementById('clientStatus').value;
   const notes = document.getElementById('clientNotes').value.trim();
   if (!name) { alert('El nombre es requerido'); return; }
+  const clientId = getClientIdByName(getActiveClientName());
+  if (backendAvailable && !clientId) {
+    alert('No se encontró el cliente activo en el servidor.');
+    return;
+  }
   const client = {name, phone, status, notes, date: new Date().toISOString().split('T')[0]};
   if (editingClientIdx >= 0) {
-    client.id = potentialClients[editingClientIdx].id;
+    client.id = potentialClients[editingClientIdx].id || String(Date.now());
+    if (backendAvailable) {
+      try {
+        await api.updatePotentialClient(clientId, client.id, client);
+      } catch (error) {
+        alert('No se pudo actualizar el cliente potencial en el servidor.');
+        console.error(error);
+        return;
+      }
+    }
     potentialClients[editingClientIdx] = client;
   } else {
-    client.id = Math.max(...potentialClients.map(p => p.id || 0), 0) + 1;
+    client.id = String(Date.now());
+    if (backendAvailable) {
+      try {
+        await api.addPotentialClient(clientId, client);
+      } catch (error) {
+        alert('No se pudo crear el cliente potencial en el servidor.');
+        console.error(error);
+        return;
+      }
+    }
     potentialClients.push(client);
   }
+
+  if (backendAvailable) {
+    await refreshBackendClients();
+    await loadClientDataFromBackend(getActiveClientName());
+  }
+
   saveAppState();
   closeClientModal();
   renderView();
 }
 
-function deleteClientPotential(idx) {
+async function deleteClientPotential(idx) {
   if (confirm('¿Borrar este cliente potencial?')) {
+    if (backendAvailable) {
+      const clientId = getClientIdByName(getActiveClientName());
+      const potentialId = potentialClients[idx]?.id;
+      if (!clientId || !potentialId) {
+        alert('No se pudo borrar en el servidor.');
+        return;
+      }
+      try {
+        await api.deletePotentialClient(clientId, potentialId);
+      } catch (error) {
+        alert('No se pudo borrar el cliente potencial en el servidor.');
+        console.error(error);
+        return;
+      }
+    }
     potentialClients.splice(idx, 1);
+    if (backendAvailable) {
+      await refreshBackendClients();
+      await loadClientDataFromBackend(getActiveClientName());
+    }
     saveAppState();
     renderView();
   }
 }
 
-function deletePost() {
+async function deletePost() {
   if (editingIdx < 0 || isSharedView) return;
   if (!confirm('¿Borrar esta publicación? Esta acción no se puede deshacer.')) return;
   const post = posts[editingIdx];
+  if (backendAvailable && post?._id) {
+    try {
+      await api.deletePost(post._id);
+    } catch (error) {
+      alert('No se pudo borrar la publicación en el servidor.');
+      console.error(error);
+      return;
+    }
+  }
   getMediaRefs(post?.media).forEach(ref => deleteMediaFromDB(ref));
   posts.splice(editingIdx, 1);
   editingIdx = -1;
@@ -1617,7 +1885,7 @@ function exportClientsToExcel() {
   document.body.removeChild(link);
 }
 
-function savePost() {
+async function savePost() {
   if (isSharedView) return;
   const activeClient = getActiveClientName();
   if (!activeClient || activeClient === 'Sin cliente') { alert('Primero agrega y selecciona un cliente.'); return; }
@@ -1648,14 +1916,41 @@ function savePost() {
     fileNames: uploadedFileNames,
     media: uploadedMedia
   };
-  if (editingIdx >= 0) posts[editingIdx] = post;
-  else posts.push(post);
+  if (editingIdx >= 0) {
+    post._id = posts[editingIdx]._id;
+    posts[editingIdx] = post;
+  } else {
+    posts.push(post);
+  }
+
+  if (backendAvailable) {
+    const clientId = getClientIdByName(activeClient);
+    if (!clientId) {
+      alert('No se encontró el cliente activo en el servidor.');
+      return;
+    }
+
+    try {
+      const payload = mapUIPostToBackend(post, clientId);
+      if (post._id) {
+        await api.updatePost(post._id, payload);
+      } else {
+        const created = await api.createPost(payload);
+        post._id = created?._id;
+      }
+    } catch (error) {
+      alert('No se pudo guardar la publicación en el servidor.');
+      console.error(error);
+      return;
+    }
+  }
+
   saveAppState();
   closeModal();
   renderView();
 }
 
-function saveComment() {
+async function saveComment() {
   if (!isSharedView || editingIdx < 0) return;
   const text = document.getElementById('postComment').value.trim();
   if (!text) {
@@ -1665,7 +1960,21 @@ function saveComment() {
 
   const post = posts[editingIdx];
   post.comments = Array.isArray(post.comments) ? post.comments : [];
-  post.comments.push({ text, date: new Date().toISOString() });
+  const newComment = { id: String(Date.now()), text, author: 'cliente', date: new Date().toISOString() };
+
+  if (backendAvailable && post?._id) {
+    try {
+      const savedComment = await api.addComment(post._id, 'cliente', text);
+      newComment.id = savedComment?.id || newComment.id;
+      newComment.date = savedComment?.createdAt || newComment.date;
+    } catch (error) {
+      alert('No se pudo guardar el comentario en el servidor.');
+      console.error(error);
+      return;
+    }
+  }
+
+  post.comments.push(newComment);
   post.unreadComments = (Number.parseInt(post.unreadComments || 0, 10) || 0) + 1;
   saveAppState();
   document.getElementById('postComment').value = '';
@@ -1674,10 +1983,20 @@ function saveComment() {
   renderView();
 }
 
-function deleteComment(postIdx, commentIdx) {
+async function deleteComment(postIdx, commentIdx) {
   if (!isSharedView) return;
   const post = posts[postIdx];
   if (!post || !Array.isArray(post.comments) || !post.comments[commentIdx]) return;
+  const commentToDelete = post.comments[commentIdx];
+  if (backendAvailable && post?._id && commentToDelete?.id) {
+    try {
+      await api.deleteComment(post._id, commentToDelete.id);
+    } catch (error) {
+      alert('No se pudo eliminar el comentario en el servidor.');
+      console.error(error);
+      return;
+    }
+  }
   post.comments.splice(commentIdx, 1);
   post.unreadComments = Math.max((Number.parseInt(post.unreadComments || 0, 10) || 0) - 1, 0);
   saveAppState();
@@ -1741,13 +2060,32 @@ async function generateShareCode() {
     return;
   }
 
-  const existingCode = Object.entries(sharedCodes).find(([, item]) => item.clientName === clientName)?.[0];
-  const code = existingCode || Math.random().toString(36).slice(2, 10);
-  sharedCodes[code] = {
-    clientName,
-    createdAt: new Date().toISOString()
-  };
-  saveSharedCodes();
+  const duration = Number.parseInt(document.getElementById('shareDuration')?.value || '7', 10);
+  let code = '';
+
+  if (backendAvailable) {
+    const clientId = getClientIdByName(clientName);
+    if (!clientId) {
+      alert('No se encontró el cliente en el servidor.');
+      return;
+    }
+    try {
+      const result = await api.generateShareCode(clientId, Number.isFinite(duration) ? duration : 7);
+      code = result?.code || '';
+    } catch (error) {
+      alert('No se pudo generar el enlace compartido en el servidor.');
+      console.error(error);
+      return;
+    }
+  } else {
+    const existingCode = Object.entries(sharedCodes).find(([, item]) => item.clientName === clientName)?.[0];
+    code = existingCode || Math.random().toString(36).slice(2, 10);
+    sharedCodes[code] = {
+      clientName,
+      createdAt: new Date().toISOString()
+    };
+    saveSharedCodes();
+  }
 
   const shareLink = `${window.location.origin}${window.location.pathname}?code=${code}`;
   document.getElementById('shareResultLink').value = shareLink;
@@ -1898,13 +2236,48 @@ function initEventListeners() {
   }
 }
 
-loadSharedCodes();
-checkSharedAccess();
-updateClientSelect();
-initEventListeners();
-// Migrar imágenes antiguas (base64 en localStorage) a IndexedDB en segundo plano
-migrateInlineImagesToIndexedDB().then(() => renderCalendar());
-renderCalendar();
+async function bootstrapApp() {
+  initEventListeners();
+  backendAvailable = await detectBackendAvailability();
+
+  if (backendAvailable) {
+    try {
+      await refreshBackendClients();
+      const persistedClient = loadSelectedClient();
+      selectedClientName = clients.includes(persistedClient) ? persistedClient : (clients[0] || '');
+
+      const isShared = await checkSharedAccess();
+      if (!isShared && selectedClientName) {
+        await loadClientDataFromBackend(selectedClientName);
+      }
+    } catch (error) {
+      console.error('No se pudo inicializar desde backend, usando modo local.', error);
+      backendAvailable = false;
+      const fallbackState = loadAppState();
+      clients = fallbackState.clients;
+      potentialClients = fallbackState.potentialClients;
+      posts = fallbackState.posts;
+      selectedClientName = clients.includes(loadSelectedClient()) ? loadSelectedClient() : (clients[0] || '');
+      loadSharedCodes();
+      await checkSharedAccess();
+    }
+  } else {
+    const fallbackState = loadAppState();
+    clients = fallbackState.clients;
+    potentialClients = fallbackState.potentialClients;
+    posts = fallbackState.posts;
+    selectedClientName = clients.includes(loadSelectedClient()) ? loadSelectedClient() : (clients[0] || '');
+    loadSharedCodes();
+    await checkSharedAccess();
+  }
+
+  updateClientSelect();
+  renderView();
+  await migrateInlineImagesToIndexedDB();
+  if (currentView === 'calendar') renderCalendar();
+}
+
+bootstrapApp();
 </script>
 </body>
 </html>
